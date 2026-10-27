@@ -433,6 +433,149 @@
       h("p", {}, "Full method and sources: ", h("a", { href: "https://github.com/devenandfreinds-sketch/Satelite-Tracker/blob/main/docs/METHOD.md" }, "docs/METHOD.md"), ".")));
   }
 
+
+  // ---------- GEO belt ----------
+  const COUNTRIES = [["United States", "--c-us"], ["China", "--c-cn"], ["Russia", "--c-ru"]];
+  const beltState = { on: { "United States": true, China: true, Russia: true }, highlight: "", burns: true };
+  let belt = null;
+
+  async function viewBelt(app) {
+    if (!belt) {
+      const r = await fetch("data/geo_belt.json");
+      if (!r.ok) { app.append(h("p", {}, "No GEO belt data. Run scripts/build_site.py.")); return; }
+      belt = await r.json();
+    }
+    app.append(h("h2", {}, "The GEO belt, June 2025 to now"));
+    app.append(h("p", { class: "ink2 prose", style: "margin-top:0" },
+      "Mean longitude of every geostationary object on the watchlist, one point per day (gaps of up to 5 days without data are bridged with a straight line). A flat line is a satellite holding its slot; a slope is a drift (about 1° a day is fast). ",
+      "Dots are burns that were not routine station-keeping. Drag across the chart to zoom into a period, double-click to reset, click a line or dot to open it."));
+
+    const counts = Object.fromEntries(COUNTRIES.map(([c]) => [c, belt.series.filter((x) => x.operator === c).length]));
+    const controls = h("div", { class: "filters", role: "group", "aria-label": "Chart controls" },
+      COUNTRIES.map(([c, tok]) => h("label", { class: "toggle" },
+        h("input", { type: "checkbox", checked: beltState.on[c], onchange: (ev) => { beltState.on[c] = ev.target.checked; draw(); } }),
+        h("span", { class: "key", style: `border-color:var(${tok})` }), `${c} (${counts[c] || 0})`)),
+      h("label", {}, "Highlight", select(belt.series.map((x) => [String(x.norad_id), x.name]), beltState.highlight, "None",
+        (v) => { beltState.highlight = v; draw(); })),
+      h("label", { class: "check" }, h("input", { type: "checkbox", checked: beltState.burns,
+        onchange: (ev) => { beltState.burns = ev.target.checked; draw(); } }), "Show burns"));
+    app.append(controls);
+
+    const box = h("div", {});
+    const readout = h("div", { class: "readout" });
+    const card = h("div", { class: "chart belt" }, h("div", { class: "ctitle" }, "Mean longitude (deg east)"), box, readout);
+    app.append(card);
+    const tableHost = h("div", {});
+    app.append(h("h3", {}, "Objects on this chart"), tableHost);
+
+    const colorOf = (op) => css((COUNTRIES.find(([c]) => c === op) || [null, "--muted"])[1]);
+    const HINT = "Hover a line for the satellite and its longitude.";
+
+    function draw() {
+      clearCharts();
+      box.replaceChildren();
+      readout.textContent = HINT;
+      const shown = belt.series.filter((x) => beltState.on[x.operator]);
+      const hl = beltState.highlight ? Number(beltState.highlight) : null;
+      const data = [belt.t, ...shown.map((x) => x.lon)];
+      const series = [{}, ...shown.map((x) => {
+        const c = colorOf(x.operator);
+        const dim = hl !== null && x.norad_id !== hl;
+        return { label: x.name, stroke: dim ? c + "40" : c, width: x.norad_id === hl ? 2.75 : 1.25, spanGaps: false, points: { show: false } };
+      })];
+      const burns = beltState.burns ? belt.burns.filter((b) => shown.some((x) => x.norad_id === b.norad_id)) : [];
+      let hoverBurn = null, hoverSat = null;
+      const width = () => Math.max(300, card.clientWidth - 16);
+      const u = new uPlot({
+        width: width(), height: Math.min(560, Math.max(360, innerHeight * 0.6)),
+        scales: { x: { time: true }, y: { range: (u, lo, hi) => [Math.max(-180, Math.floor((lo - 5) / 10) * 10), Math.min(180, Math.ceil((hi + 5) / 10) * 10)] } },
+        series,
+        axes: [
+          { stroke: css("--muted"), grid: { stroke: css("--grid"), width: 1 }, ticks: { stroke: css("--axis") } },
+          { stroke: css("--muted"), grid: { stroke: css("--grid"), width: 1 }, ticks: { stroke: css("--axis") }, size: 56,
+            values: (u, vals) => vals.map((v) => `${v}°`) },
+        ],
+        legend: { show: false },
+        cursor: { y: false, points: { show: false }, drag: { x: true, y: false } },
+        hooks: {
+          draw: [(u) => {
+            const ctx = u.ctx;
+            ctx.save();
+            const r = 4.5 * devicePixelRatio;
+            for (const b of burns) {
+              if (b.lon === null) continue;
+              const x = u.valToPos(b.t, "x", true), y = u.valToPos(b.lon, "y", true);
+              if (x < u.bbox.left || x > u.bbox.left + u.bbox.width) continue;
+              const sat = belt.series.find((s) => s.norad_id === b.norad_id);
+              const dim = hl !== null && b.norad_id !== hl;
+              ctx.globalAlpha = dim ? 0.25 : 1;
+              ctx.beginPath(); ctx.arc(x, y, r + 2 * devicePixelRatio, 0, 2 * Math.PI); ctx.fillStyle = css("--surface"); ctx.fill();
+              ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fillStyle = colorOf(sat.operator); ctx.fill();
+            }
+            ctx.restore();
+          }],
+          setCursor: [(u) => {
+            const i = u.cursor.idx, cx = u.cursor.left, cy = u.cursor.top;
+            hoverBurn = null; hoverSat = null;
+            if (i === null || i === undefined || cx < 0) { readout.textContent = HINT; return; }
+            for (const b of burns) {
+              if (b.lon === null) continue;
+              const dx = u.valToPos(b.t, "x") - cx, dy = u.valToPos(b.lon, "y") - cy;
+              if (dx * dx + dy * dy < 12 * 12) { hoverBurn = b; break; }
+            }
+            let best = 20;
+            shown.forEach((x, k) => {
+              const v = u.data[k + 1][i];
+              if (v === null || v === undefined) return;
+              const d = Math.abs(u.valToPos(v, "y") - cy);
+              if (d < best) { best = d; hoverSat = { ...x, v }; }
+            });
+            readout.textContent = "";
+            const day = new Date(u.data[0][i] * 1000).toISOString().slice(0, 10);
+            if (hoverBurn) {
+              const sat = belt.series.find((s) => s.norad_id === hoverBurn.norad_id);
+              readout.append(h("span", { class: "dot", style: `background:${colorOf(sat.operator)}` }), " ",
+                h("strong", {}, `${fmt(hoverBurn.dv, hoverBurn.dv < 1 ? 3 : 2)} m/s`), ` ${labelName(hoverBurn.label)}`, h("br"),
+                `${sat.name} · ${sat.operator} · ${new Date(hoverBurn.t * 1000).toISOString().slice(0, 10)} · click to open`);
+            } else if (hoverSat) {
+              readout.append(h("span", { class: "key", style: `border-color:${colorOf(hoverSat.operator)}` }), " ",
+                h("strong", {}, `${fmt(hoverSat.v, 2)}°E`), ` ${hoverSat.name}`, h("br"), `${hoverSat.operator} · ${day} · click to open`);
+            } else {
+              readout.append(day, h("br"), HINT);
+            }
+            u.over.style.cursor = hoverBurn || hoverSat ? "pointer" : "crosshair";
+          }],
+          ready: [(u) => {
+            u.over.addEventListener("click", () => {
+              if (hoverBurn) location.hash = evHref(hoverBurn.key);
+              else if (hoverSat) location.hash = `#/sat/${hoverSat.norad_id}`;
+            });
+          }],
+        },
+      }, data, box);
+      charts.push(u);
+      new ResizeObserver(() => u.setSize({ width: width(), height: u.height })).observe(card);
+
+      // Table view: every value on the chart is reachable without hovering.
+      const rows = shown.map((x) => {
+        const idx = x.lon.map((v, k) => (v === null ? -1 : k)).filter((k) => k >= 0);
+        const last = idx.length ? x.lon[idx[idx.length - 1]] : null;
+        const prev7 = idx.length > 7 ? x.lon[idx[idx.length - 8]] : null;
+        const drift = last !== null && prev7 !== null && Math.abs(last - prev7) < 180
+          ? (last - prev7) / ((belt.t[idx[idx.length - 1]] - belt.t[idx[idx.length - 8]]) / DAY) : null;
+        return { ...x, last, drift, n_burns: belt.burns.filter((b) => b.norad_id === x.norad_id).length };
+      });
+      tableHost.replaceChildren(table([
+        { key: "name", title: "Satellite", render: (r) => [h("span", { class: "key", style: `border-color:${colorOf(r.operator)}` }), " ", r.name] },
+        { key: "operator", title: "Country" },
+        { key: "last", title: "Latest mean longitude", right: true, render: (r) => (r.last === null ? "–" : `${fmt(r.last, 2)}°E`) },
+        { key: "drift", title: "Drift, last week (°/day)", right: true, render: (r) => signed(r.drift, 3) },
+        { key: "n_burns", title: "Notable burns", right: true },
+      ], sortRows(rows, { key: "last", dir: 1 }), { onRow: (r) => { location.hash = `#/sat/${r.norad_id}`; } }));
+    }
+    draw();
+  }
+
   // ---------- routing ----------
   async function route() {
     clearCharts();
@@ -445,6 +588,7 @@
       if (tab === "event") await viewEvent(app, decodeURIComponent(arg || ""));
       else if (tab === "sat") await viewSat(app, Number(arg));
       else if (tab === "satellites") viewSatellites(app);
+      else if (tab === "belt") await viewBelt(app);
       else if (tab === "campaigns") viewCampaigns(app);
       else if (tab === "validation") viewValidation(app);
       else if (tab === "about") viewAbout(app);

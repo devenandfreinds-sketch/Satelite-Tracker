@@ -61,6 +61,60 @@ def series(conn, nid, keep_epochs):
     return out
 
 
+GAP_BRIDGE_DAYS = 5  # days without a set that the chart line may bridge
+
+
+def _bridge(vals, max_gap):
+    """Linearly fill runs of up to max_gap missing days between two known
+    values, so sparse tracking doesn't render as a dashed line. Longer gaps,
+    and the blanks left at the 180 deg seam, stay empty."""
+    out = list(vals)
+    known = [i for i, v in enumerate(vals) if v is not None]
+    for a, b in zip(known, known[1:]):
+        if 1 < b - a <= max_gap + 1 and abs(vals[b] - vals[a]) < 180:
+            for i in range(a + 1, b):
+                out[i] = round(vals[a] + (vals[b] - vals[a]) * (i - a) / (b - a), 3)
+    return out
+
+
+def geo_belt(conn, wl, ev):
+    """Daily mean longitude for every GEO watchlist object, on one shared day axis.
+
+    One value per UTC day (the day's last set), so 40 objects share one x-axis.
+    Jumps across the 180 deg seam become gaps instead of lines across the chart.
+    """
+    per_sat = {}
+    for w in wl:
+        h = db.load_history(conn, w["norad_id"], publishable_only=True)
+        if h.empty or classify.regime(h.mean_motion_rev_day.median(), h.eccentricity.median()) != "geo":
+            continue
+        h = h[h.mean_motion_rev_day.between(0.9, 1.1)]  # skip any transfer-orbit sets
+        h["day"] = h.epoch.dt.floor("D")
+        last = h.groupby("day").tail(1)
+        per_sat[w["norad_id"]] = {d: classify.geo_longitude(f, r) for d, f, r in zip(last.day, last.fmt, last.raw)}
+    if not per_sat:
+        return None
+    days = pd.date_range(min(min(v) for v in per_sat.values()), max(max(v) for v in per_sat.values()), freq="D")
+    series = []
+    for w in wl:
+        if w["norad_id"] not in per_sat:
+            continue
+        vals, prev = [], None
+        for d in days:
+            v = per_sat[w["norad_id"]].get(d)
+            # blank the point that crosses the seam so the line breaks there
+            wrapped = v is not None and prev is not None and abs(v - prev) > 180
+            vals.append(None if v is None or wrapped else round(v, 3))
+            prev = v if v is not None else prev
+        series.append({"norad_id": w["norad_id"], "name": w["name"], "operator": w["operator"],
+                       "lon": _bridge(vals, GAP_BRIDGE_DAYS)})
+    geo_ids = set(per_sat)
+    burns = [{"norad_id": int(e.norad_id), "t": int(pd.Timestamp(e.window_end_utc).timestamp()),
+              "lon": _clean(e.lon_after_deg), "label": e.label, "key": e.key, "dv": _clean(e.dv_total_ms)}
+             for e in ev.itertuples() if e.norad_id in geo_ids and not e.routine and e.lon_after_deg is not None]
+    return {"t": [int(d.timestamp()) for d in days], "series": series, "burns": burns}
+
+
 def main():
     (OUT / "sat").mkdir(parents=True, exist_ok=True)
     wl = watchlist.load()
@@ -124,6 +178,10 @@ def main():
                           "dv_total_ms": _clean(e.dv_total_ms) if e is not None else None,
                           "dv_sigma_ms": _clean(e.dv_sigma_ms) if e is not None else None,
                           "lag_h": _clean((e.end - t.burn).total_seconds() / 3600) if e is not None else None})
+
+        belt = geo_belt(conn, wl, ev)
+        if belt:
+            (OUT / "geo_belt.json").write_text(json.dumps(belt, separators=(",", ":")))
 
     index = {
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

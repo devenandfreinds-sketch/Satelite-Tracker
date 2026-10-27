@@ -152,3 +152,44 @@ def test_watchlist_save_is_atomic(tmp_path, monkeypatch):
         watchlist.save([{"norad_id": 1, "unexpected": "field"}], p)
     assert p.read_text() == "original\n"
     assert not (tmp_path / "w.csv.tmp").exists()
+
+
+GOOD_TLE = ("1 47613U 21010A   25217.58714096  .00000050  00000+0  00000+0 0  9995\n"
+            "2 47613   0.2235 262.6404 0001349 187.7607 253.8330  1.00269677 16630")
+# Real archived set with an 8-character eccentricity: every later column shifts
+# and the mean anomaly is read as 328 rev/day.
+SHIFTED_TLE = ("1 47613U 21010A   25217.79413917  .00000050  00000+0  00000+0 0  9996\n"
+               "2 47613   0.2230 262.6402 00013391 188.1547 328.1612  1.00269724 16644")
+
+
+def test_good_tle_accepted():
+    row = element_row(47613, "tle", GOOD_TLE, "test")
+    assert row["mean_motion_rev_day"] == pytest.approx(1.0027, abs=1e-4)
+
+
+def test_column_shifted_tle_rejected():
+    from tracker.elements import BadElementSet, valid_rows
+    with pytest.raises(BadElementSet, match="70 characters"):
+        element_row(47613, "tle", SHIFTED_TLE, "test")
+    rows, bad = valid_rows([(47613, "tle", GOOD_TLE, "test", None), (47613, "tle", SHIFTED_TLE, "test", None)])
+    assert len(rows) == 1 and bad == 1
+
+
+def test_bad_checksum_rejected():
+    from tracker.elements import BadElementSet
+    with pytest.raises(BadElementSet, match="checksum"):
+        element_row(47613, "tle", GOOD_TLE[:-1] + "1", "test")
+
+
+def test_unpropagatable_set_does_not_shift_later_events():
+    # A set SGP4 cannot propagate makes residuals skip two pairs. Events after
+    # it must still point at the right sets (a positional assumption used to
+    # shift every later event by two sets and hide real burns).
+    h = synthetic_history(n_sets=140, burn_at=110, d_mm=-0.0068)
+    broken = json.loads(h.raw.iloc[40])
+    broken["ECCENTRICITY"] = 0.99  # perigee far inside the Earth: SGP4 error
+    h.loc[40, "raw"] = json.dumps(broken)
+    ev, _, _ = detect.detect(h)
+    assert len(ev) == 1
+    assert ev.iloc[0].window_end_utc == h.epoch_utc.iloc[110]
+    assert ev.iloc[0].d_sma_km == pytest.approx(2.0, rel=0.05)

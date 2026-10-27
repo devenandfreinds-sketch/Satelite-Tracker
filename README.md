@@ -36,7 +36,7 @@ python3 -m venv .venv
 python3 -m http.server 8000 --directory site
 ```
 
-Then open http://localhost:8000. It has a filterable, sortable event list (date range, satellite, group, burn type, minimum delta-v, routine on/off), a page per event (delta-v with uncertainty, before/after orbit, closest objects, orbit charts with the burn windows shaded), a page per satellite, campaigns, and the ISS validation. Links are shareable (`#/event/...`, `#/sat/49330`).
+Then open http://localhost:8000. It has a GEO belt map (every watchlist GEO object's mean longitude over time, coloured by country, with notable burns marked; drag to zoom, click a line or dot to open it), a filterable, sortable event list (date range, satellite, group, burn type, minimum delta-v, routine on/off), a page per event (delta-v with uncertainty, before/after orbit, closest objects, orbit charts with the burn windows shaded), a page per satellite, campaigns, and the ISS validation. Links are shareable (`#/event/...`, `#/sat/49330`).
 
 The committed `site/data/` is a snapshot from 2026-10-27. When we deploy (GitHub Pages), a scheduled workflow should rebuild and publish the data as a Pages artifact instead of committing 3 MB a day.
 

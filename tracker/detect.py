@@ -130,13 +130,15 @@ def drop_outlier_sets(history, z=None, passes=2):
             break
         zz = (r.d_sma_km / ((r.dt_hours / 24 + TAU_D) * s)).to_numpy()
         bad = []
-        # pair i compares sets i and i+1 (residual rows are 1 shorter than history)
+        i_prev, i_cur = r.i_prev.to_numpy(), r.i_cur.to_numpy()
         for i in range(len(zz) - 1):
             a, b = zz[i], zz[i + 1]
+            # consecutive pairs sharing one set k that jumped out and back
+            if i_cur[i] != i_prev[i + 1]:
+                continue
             if abs(a) >= z and abs(b) >= z and np.sign(a) != np.sign(b):
-                # set i+1 jumped out and back; check neighbours agree without it
-                k = i + 1
-                if abs(h.sma_km.iloc[k + 1] - h.sma_km.iloc[k - 1]) < 0.5 * abs(h.sma_km.iloc[k] - h.sma_km.iloc[k - 1]):
+                k, before, after = i_cur[i], i_prev[i], i_cur[i + 1]
+                if abs(h.sma_km.iloc[after] - h.sma_km.iloc[before]) < 0.5 * abs(h.sma_km.iloc[k] - h.sma_km.iloc[before]):
                     bad.append(k)
         if not bad:
             break
@@ -262,21 +264,21 @@ def detect(history):
     r = score(clean)
     if r.empty:
         return pd.DataFrame(), r, dropped
-    # r row k compares clean sets k and k+1. Adjacent candidate pairs (a burn
-    # smeared over two or more fits) become one event.
+    # Row k compares clean sets r.i_prev[k] and r.i_cur[k]. Candidate pairs
+    # that share a set (a burn smeared over two or more fits) become one event.
     groups = []
     for k in r.index[r.candidate]:
-        if groups and k == groups[-1][-1] + 1:
+        if groups and r.at[k, "i_prev"] == r.at[groups[-1][-1], "i_cur"]:
             groups[-1].append(k)
         else:
             groups.append([k])
     events = []
     for g in groups:
-        k0, k1 = g[0], g[-1]
-        before, after = clean.iloc[k0], clean.iloc[k1 + 1]
+        i_before, i_after = int(r.at[g[0], "i_prev"]), int(r.at[g[-1], "i_cur"])
+        before, after = clean.iloc[i_before], clean.iloc[i_after]
         k_peak = r.loc[g, "z_elem"].idxmax()
         name = r.at[k_peak, "driver"]
-        persist = _persists(clean, k0, k1 + 2, r, k_peak, name)
+        persist = _persists(clean, i_before, i_after + 1, r, k_peak, name)
         if persist is False:
             continue  # change reverted: a bad fit, not a burn
         # Event deltas: J2-corrected, drift-corrected steps summed over the event's pairs.
@@ -327,7 +329,7 @@ def detect(history):
             "plane_change": int(plane_real),
             "window_start_utc": before.epoch_utc,
             "window_end_utc": after.epoch_utc,
-            "confirmed_at_utc": clean.epoch_utc.iloc[k1 + 2] if persist else None,
+            "confirmed_at_utc": clean.epoch_utc.iloc[i_after + 1] if persist else None,
             "n_pairs": len(g),
             "max_z": float(r.loc[g, "z_elem"].max()),
             "driver": "plane" if name in PLANE else name,

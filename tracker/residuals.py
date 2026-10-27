@@ -74,6 +74,11 @@ def compute(history):
         # is the chord 2 sin(theta/2) of the plane-change angle theta.
         dn = orbit_normal(c.inclination_deg, c.raan_deg) - orbit_normal(p.inclination_deg, p.raan_deg + raan_pred)
         out.append({
+            # Positions in `history` of the two sets compared. Pairs can be
+            # skipped (SGP4 error, duplicate epoch), so row k does not always
+            # compare sets k and k+1; always go through these.
+            "i_prev": k - 1,
+            "i_cur": k,
             "epoch": c.epoch,
             "prev_epoch": p.epoch,
             "dt_hours": dt_days * 24.0,

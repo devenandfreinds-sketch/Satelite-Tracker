@@ -13,16 +13,15 @@ import sys
 from collections import defaultdict
 
 from . import catalog, config, db, watchlist
-from .elements import element_row
+from .elements import valid_rows
 from .sources import celestrak, satchecker, spacetrack
 
 
 def _store_omm(conn, recs, wanted, source="celestrak"):
-    rows = []
-    for o in recs:
-        if wanted is not None and o["NORAD_CAT_ID"] not in wanted:
-            continue
-        rows.append(element_row(o["NORAD_CAT_ID"], "omm", celestrak.to_raw(o), source, o.get("OBJECT_NAME")))
+    rows, bad = valid_rows((o["NORAD_CAT_ID"], "omm", celestrak.to_raw(o), source, o.get("OBJECT_NAME"))
+                           for o in recs if wanted is None or o["NORAD_CAT_ID"] in wanted)
+    if bad:
+        print(f"warn: rejected {bad} malformed element sets", file=sys.stderr)
     return len(rows), db.insert_elements(conn, rows)
 
 
@@ -73,16 +72,17 @@ def backfill(norad_id, start, end, source):
         query = f"NORAD={norad_id} {start}..{end}"
         if source == "satchecker":
             status, recs = satchecker.fetch_history(norad_id, start, end)
-            rows = [element_row(norad_id, "tle", tle, label, name) for label, tle, name in recs]
+            rows, bad = valid_rows((norad_id, "tle", tle, label, name) for label, tle, name in recs)
         else:
             status, recs = spacetrack.fetch_history(norad_id, start, end)
-            rows = [element_row(norad_id, "omm", celestrak.to_raw(o), "spacetrack", o.get("OBJECT_NAME")) for o in recs]
+            rows, bad = valid_rows((norad_id, "omm", celestrak.to_raw(o), "spacetrack", o.get("OBJECT_NAME")) for o in recs)
         new = db.insert_elements(conn, rows)
         db.log_fetch(conn, source, query, status, len(rows), new)
     by_src = defaultdict(int)
     for r in rows:
         by_src[r["source"]] += 1
-    print(f"backfill {norad_id}: {len(rows)} sets received ({dict(by_src)}), {new} new")
+    print(f"backfill {norad_id}: {len(rows)} sets received ({dict(by_src)}), {new} new"
+          + (f", {bad} malformed sets rejected" if bad else ""))
 
 
 def main():

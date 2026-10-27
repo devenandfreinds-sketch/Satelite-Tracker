@@ -82,12 +82,17 @@ Ground truth: `validation/iss_maneuvers.csv`, 17 burns compiled by reading every
 
 ## Watchlist run (2026-10-27)
 
-The detector ran on all 73 objects over 17 months of public history: 22 events on the ISS, 459 on the GEO set, 11 on the two Cosmos LEO objects, and 207 on the 30 Starlinks. There is no ground truth for these yet, so they are leads, not findings. Checks so far:
+The detector ran on all 73 objects over 17 months of public history: 22 events on the ISS, 554 on the GEO set, 11 on the two Cosmos LEO objects, and 207 on the 30 Starlinks (794 in total). There is no ground truth for these yet, so they are leads, not findings. Checks so far:
 
 - **GEO station-keeping looks right.** TJS-22 shows 22 events of 0.001 to 0.07 m/s, the size of east-west station-keeping. Several TJS satellites show plane changes of about 0.85° (~45 m/s), where the inclination vector swings across zero, the signature of north-south station-keeping. TJS-6 on 2025-06-19 went from 0.50° inclination at node 90° to 0.33° at node 265°, confirmed by a 545 km cross-track miss.
 - **SJ-21 and SJ-25 moved as one stack in August 2025.** From 2025-08-04 the two carry identical element sets at the same epochs, meaning they were docked or catalogued as one object. Between 2025-08-05 and 2025-08-12 the stack's inclination stepped from 10.58° to 4.41° in several burns. The largest, between Aug 11 and 12, is a 5.87° plane change of about 315 ± 16 m/s; the earlier steps add roughly another 42 m/s. **This needs checking against published reporting before anyone writes about it.** Shared element sets could also be a catalog artifact.
 - **Long orbit-raising campaigns merge into one event.** Cosmos 2589 raised its perigee from 20,400 to 23,100 km over 28 days in Nov–Dec 2025; adjacent flags merged into one 97 m/s event. These should be labelled as campaigns.
 - **Thin public data for GSSAP.** SatChecker's CelesTrak-origin archive holds only 1 set each for USA 253 and USA 254 (Space-Track has about 148). The US comparison set will only become publishable as our own daily CelesTrak pulls build up history.
+
+## Data quality
+
+- **Malformed TLEs are rejected at ingest** (`tracker/elements.py`). Fixed-column TLE parsing does not notice a field that is one character too long: everything after it shifts. SatChecker's archive holds 51 sets from 2025-08-05 with an 8-character eccentricity, which made the mean anomaly read as a mean motion of 48 to 350 rev/day. Every TLE must now have 69-character lines with valid checksums, and every set must describe a possible orbit (0.05 to 17.5 rev/day, e < 1, perigee above 80 km). Of 1.09 million stored TLEs, exactly those 51 failed.
+- **One bad set used to hide a year of burns.** SGP4 cannot propagate such a set, so the residual step skips the two pairs around it, and the detector assumed residual row *k* always compared sets *k* and *k+1*. After a skip, every later event pointed two sets off and persistence checks used the wrong set. On the six TJS satellites affected, 95 events over the following 15 months went missing. Residual rows now carry the indices of the sets they compare, and a test reproduces the failure (it finds 0 events on the old code, 1 on the new).
 
 ## Accuracy limits that go in every write-up
 

@@ -40,7 +40,7 @@ from sgp4.api import SatrecArray
 from sgp4.propagation import gstime
 
 from . import catalog, classify, db, watchlist
-from .elements import MU_EARTH, element_row, satrec_from_raw
+from .elements import MU_EARTH, satrec_from_raw, valid_rows
 from .residuals import _j2_raan_rate_deg_day, orbit_normal
 from .sources import celestrak, satchecker
 
@@ -188,7 +188,7 @@ def _ensure_history(conn, nid, end_day):
     for attempt in range(2):
         try:
             status, recs = satchecker.fetch_history(nid, HISTORY_START, end_day)
-            rows = [element_row(nid, "tle", tle, label, name) for label, tle, name in recs]
+            rows, _ = valid_rows((nid, "tle", tle, label, name) for label, tle, name in recs)
             new = db.insert_elements(conn, rows)
             db.log_fetch(conn, "satchecker", query, status, len(rows), new)
             conn.commit()
