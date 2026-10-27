@@ -8,7 +8,7 @@ Everything here is **analysis of public data**. Public element sets (TLE/GP) are
 
 | Milestone | State |
 |---|---|
-| 1. Daily pull + storage for 50 to 100 objects | Built. 43 named objects pulling daily; 30-satellite Starlink sample is one command away (`python -m tracker.watchlist starlink-sample`) once CelesTrak's 2 h window reopens |
+| 1. Daily pull + storage for 50 to 100 objects | Done. 73 objects: 43 named targets plus a 30-satellite Starlink sample (seed 20261026, spread across the 43, 53, 70 and 97 degree shells) |
 | 2. Detector validated on ISS reboosts | Residual engine built. Provisional threshold flags 17/17 NASA-reported burns (Jun 2025 to Oct 2026), with 1 unexplained flag. Real detector and per-object noise model still to come |
 | 3. Public dashboard + event write-up template | Not started |
 

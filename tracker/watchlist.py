@@ -5,10 +5,13 @@
 """
 import argparse
 import csv
+import os
 import random
 from datetime import datetime, timezone
+from pathlib import Path
 
-from . import config
+from . import config, db
+from .elements import element_row
 from .sources import celestrak
 
 FIELDS = ["norad_id", "name", "cospar_id", "category", "operator", "fetch_via", "notes"]
@@ -17,16 +20,23 @@ FIELDS = ["norad_id", "name", "cospar_id", "category", "operator", "fetch_via", 
 def load(path=None):
     with open(path or config.WATCHLIST_PATH, newline="") as f:
         rows = list(csv.DictReader(f))
-    for r in rows:
+    for line, r in enumerate(rows, start=2):
+        # DictReader files surplus fields under None: an unquoted comma in notes.
+        if None in r or None in r.values():
+            raise ValueError(f"watchlist.csv line {line}: wrong field count; quote any notes containing commas")
         r["norad_id"] = int(r["norad_id"])
     return rows
 
 
 def save(rows, path=None):
-    with open(path or config.WATCHLIST_PATH, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDS)
+    # Write a temp file then rename, so a failed write never truncates the watchlist.
+    path = Path(path or config.WATCHLIST_PATH)
+    tmp = path.with_suffix(".csv.tmp")
+    with open(tmp, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
+    os.replace(tmp, path)
 
 
 def verify():
@@ -55,6 +65,9 @@ def verify():
 
 def starlink_sample(n, seed):
     """Pick n operational-altitude Starlinks, spread evenly across inclination shells."""
+    # Load first: a malformed watchlist should fail before we spend the
+    # once-per-2-hours Starlink group download.
+    rows = load()
     status, recs = celestrak.fetch_group("starlink")
     if not recs:
         raise SystemExit(f"CelesTrak returned no Starlink data (HTTP {status}); "
@@ -71,7 +84,6 @@ def starlink_sample(n, seed):
     for i in range(n):
         shell = big[i % len(big)]
         picked.append(shells[shell].pop(rng.randrange(len(shells[shell]))))
-    rows = load()
     have = {r["norad_id"] for r in rows}
     for o in sorted(picked, key=lambda o: o["NORAD_CAT_ID"]):
         if o["NORAD_CAT_ID"] in have:
@@ -82,7 +94,15 @@ def starlink_sample(n, seed):
             "notes": f"Random sample seed={seed}, {round(o['INCLINATION'])} deg shell, picked {datetime.now(timezone.utc):%Y-%m-%d}",
         })
     save(rows)
-    print(f"added {len(picked)} Starlinks from shells {sorted(big)}")
+    # Store the picked satellites' current elements now, and log the fetch, so
+    # the next `ingest daily` does not need a second group download.
+    with db.connect() as conn:
+        db.upsert_satellites(conn, rows)
+        new = db.insert_elements(conn, [
+            element_row(o["NORAD_CAT_ID"], "omm", celestrak.to_raw(o), "celestrak", o["OBJECT_NAME"]) for o in picked
+        ])
+        db.log_fetch(conn, "celestrak", "GROUP=starlink", status, len(picked), new)
+    print(f"added {len(picked)} Starlinks from shells {sorted(big)}; stored {new} element sets")
 
 
 def main():

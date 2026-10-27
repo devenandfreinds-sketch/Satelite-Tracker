@@ -38,7 +38,37 @@ norad_id,name,cospar_id,category,operator,fetch_via,notes
 51280,USA 324,2022-006A,geo_inspector,United States,catnr,GSSAP 5
 51281,USA 325,2022-006B,geo_inspector,United States,catnr,GSSAP 6
 40101,USA 255,2014-043C,geo_inspector,United States,catnr,ANGELS (GSSAP rideshare); retired but still catalogued
-64467,COSMOS 2589,2025-131A,geo_inspector,Russia,catnr,Russian GEO object launched 2025; inspector role unconfirmed, verify before citing
+64467,COSMOS 2589,2025-131A,geo_inspector,Russia,catnr,"Russian GEO object launched 2025; inspector role unconfirmed, verify before citing"
 64527,COSMOS 2590,2025-131D,geo_inspector,Russia,catnr,Same launch as Cosmos 2589
 59773,COSMOS 2576,2024-092A,leo_shadowing,Russia,catnr,Reported in 2024 to share a plane with USA 314 (USA 314 has no public elements)
 64095,COSMOS 2588,2025-109A,leo_shadowing,Russia,catnr,Reported in 2025 to be placed near USA 338 (USA 338 has no public elements)
+51968,STARLINK-3681,2022-025N,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+52380,STARLINK-3793,2022-045BB,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+53060,STARLINK-4305,2022-077T,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 97 deg shell, picked 2026-10-27"
+53620,STARLINK-4615,2022-104AJ,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+56008,STARLINK-5803,2023-042Y,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+56505,STARLINK-5763,2023-065C,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+59081,STARLINK-31292,2024-041H,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+59195,STARLINK-31554,2024-045T,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+62312,STARLINK-32698,2024-239M,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+63476,STARLINK-33718,2025-070S,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+63755,STARLINK-11681 [DTC],2025-089E,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+64034,STARLINK-33946,2025-102N,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 70 deg shell, picked 2026-10-27"
+64418,STARLINK-34461,2025-129G,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 70 deg shell, picked 2026-10-27"
+64711,STARLINK-34312,2025-142R,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 70 deg shell, picked 2026-10-27"
+64805,STARLINK-34624,2025-150R,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 70 deg shell, picked 2026-10-27"
+64809,STARLINK-34675,2025-150V,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 70 deg shell, picked 2026-10-27"
+65656,STARLINK-35344,2025-211E,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 97 deg shell, picked 2026-10-27"
+65674,STARLINK-35254,2025-211Y,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 97 deg shell, picked 2026-10-27"
+66078,STARLINK-35116,2025-235W,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+66091,STARLINK-35532,2025-236F,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+67114,STARLINK-36180,2025-299N,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+67351,STARLINK-36478,2026-003T,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 43 deg shell, picked 2026-10-27"
+67878,STARLINK-36689,2026-034AE,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+67892,STARLINK-36813,2026-035P,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 97 deg shell, picked 2026-10-27"
+68847,STARLINK-37465,2026-094J,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 97 deg shell, picked 2026-10-27"
+69182,STARLINK-37380,2026-114A,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 53 deg shell, picked 2026-10-27"
+69678,STARLINK-38009,2026-145B,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 97 deg shell, picked 2026-10-27"
+100216,STARLINK-38133,2026-177D,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 97 deg shell, picked 2026-10-27"
+101004,STARLINK-38435,2026-232A,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 70 deg shell, picked 2026-10-27"
+101016,STARLINK-38418,2026-232N,starlink_sample,SpaceX,group:starlink,"Random sample seed=20261026, 70 deg shell, picked 2026-10-27"
