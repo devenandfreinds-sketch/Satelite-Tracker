@@ -1,0 +1,44 @@
+norad_id,name,cospar_id,category,operator,fetch_via,notes
+25544,ISS (ZARYA),1998-067A,validation,NASA/Roscosmos,catnr,Ground-truth case: NASA publishes reboost dates
+40258,LUCH (OLYMP-K 1),2014-058A,geo_inspector,Russia,catnr,Olymp-K 1; years of GEO proximity operations near commercial comsats
+55841,LUCH-5X (OLYMP-K 2),2023-031A,geo_inspector,Russia,catnr,Olymp-K 2 launched 2023
+41838,SHIJIAN-17 (SJ-17),2016-065A,geo_inspector,China,catnr,GEO inspection/robotic-arm testbed
+49330,SHIJIAN-21 (SJ-21),2021-094A,geo_inspector,China,catnr,Towed dead BeiDou-2 G2 to graveyard in 2022
+49382,SJ-21 AKM,2021-094C,geo_inspector,China,catnr,SJ-21 apogee kick motor; recorded for tracking context
+62485,SHIJIAN-25 (SJ-25),2025-002A,geo_inspector,China,catnr,Reported in 2025 to dock with SJ-21 for refuelling; verify before citing
+40892,TJS-1,2015-046A,geo_inspector,China,catnr,TJS (Tongxin Jishu Shiyan) series; missions officially undisclosed
+41911,TJS-2,2017-001A,geo_inspector,China,catnr,TJS series
+43874,TJS-3,2018-110A,geo_inspector,China,catnr,TJS series
+44637,TJS-4,2019-070A,geo_inspector,China,catnr,TJS series
+44978,TJS-5,2020-002A,geo_inspector,China,catnr,TJS series
+47613,TJS-6,2021-010A,geo_inspector,China,catnr,TJS series
+49115,TJS-7,2021-077A,geo_inspector,China,catnr,TJS series
+50574,TJS-9,2021-135A,geo_inspector,China,catnr,TJS series (no TJS-8 in CelesTrak name search)
+58204,TJS-10,2023-169A,geo_inspector,China,catnr,TJS series
+59020,TJS-11,2024-037A,geo_inspector,China,catnr,TJS series
+62188,TJS-13,2024-227A,geo_inspector,China,catnr,TJS series; ~2 rev/day so not GEO
+62374,TJS-12,2024-246A,geo_inspector,China,catnr,TJS series
+62804,TJS-14,2025-017A,geo_inspector,China,catnr,TJS series
+63157,TJS-15,2025-045A,geo_inspector,China,catnr,TJS series
+63397,TJS-16,2025-064A,geo_inspector,China,catnr,TJS series
+63524,TJS-17,2025-073A,geo_inspector,China,catnr,TJS series; 0.9955 rev/day so drifting
+63924,TJS-19,2025-097A,geo_inspector,China,catnr,TJS series; 1.0004 rev/day so drifting
+66142,TJS-20,2025-238A,geo_inspector,China,catnr,TJS series
+66990,TJS-22,2025-290A,geo_inspector,China,catnr,TJS series
+67226,TJS-23,2025-306A,geo_inspector,China,catnr,TJS series
+69235,TJS-24,2026-116A,geo_inspector,China,catnr,TJS series
+69474,TJS-25,2026-129A,geo_inspector,China,catnr,TJS series
+69674,TJS-26A,2026-144A,geo_inspector,China,catnr,TJS series
+100174,TJS-27A,2026-173A,geo_inspector,China,catnr,TJS series; LEO-like mean motion as of 2026-10-26; 6-digit catalog number so OMM only
+100176,TJS-27B,2026-173C,geo_inspector,China,catnr,TJS series; companion of TJS-27A
+40099,USA 253,2014-043A,geo_inspector,United States,catnr,GSSAP 1 (comparison set)
+40100,USA 254,2014-043B,geo_inspector,United States,catnr,GSSAP 2
+41744,USA 270,2016-052A,geo_inspector,United States,catnr,GSSAP 3
+41745,USA 271,2016-052B,geo_inspector,United States,catnr,GSSAP 4
+51280,USA 324,2022-006A,geo_inspector,United States,catnr,GSSAP 5
+51281,USA 325,2022-006B,geo_inspector,United States,catnr,GSSAP 6
+40101,USA 255,2014-043C,geo_inspector,United States,catnr,ANGELS (GSSAP rideshare); retired but still catalogued
+64467,COSMOS 2589,2025-131A,geo_inspector,Russia,catnr,Russian GEO object launched 2025; inspector role unconfirmed, verify before citing
+64527,COSMOS 2590,2025-131D,geo_inspector,Russia,catnr,Same launch as Cosmos 2589
+59773,COSMOS 2576,2024-092A,leo_shadowing,Russia,catnr,Reported in 2024 to share a plane with USA 314 (USA 314 has no public elements)
+64095,COSMOS 2588,2025-109A,leo_shadowing,Russia,catnr,Reported in 2025 to be placed near USA 338 (USA 338 has no public elements)

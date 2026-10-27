@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+
+# The database holds Space-Track-origin rows that must never be redistributed.
+# Keep it out of git entirely; public output is exported from it separately.
+data/
