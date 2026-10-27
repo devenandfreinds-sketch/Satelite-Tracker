@@ -305,6 +305,11 @@ def run(norad_ids=None, all_events=False, publishable_only=True, include_starlin
     cache = {}
     with db.connect() as conn:
         conn.executescript(SCHEMA)
+        # Events move or vanish when detection reruns; drop neighbour rows whose event is gone.
+        conn.execute("""DELETE FROM event_neighbors WHERE data_scope=? AND NOT EXISTS (
+                            SELECT 1 FROM maneuver_events e WHERE e.norad_id=event_neighbors.norad_id
+                            AND e.data_scope=event_neighbors.data_scope
+                            AND e.window_end_utc=event_neighbors.window_end_utc)""", (scope,))
         q = "SELECT * FROM maneuver_events WHERE data_scope=?"
         args = [scope]
         if not all_events:

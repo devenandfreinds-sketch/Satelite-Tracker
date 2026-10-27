@@ -1,0 +1,62 @@
+/* Globe page. Tokens come from style.css; the 3D stage is always dark (it is space). */
+.globe-page { --g-us: #3987e5; --g-cn: #d95926; --g-ru: #199e70; --g-iss: #f0efec; --g-star: #898781;
+  --g-panel: rgba(20, 20, 19, 0.86); --g-ink: #f0efec; --g-ink2: #c3c2b7; --g-ring: rgba(255, 255, 255, 0.12); }
+/* full-height column: the stage takes whatever the header leaves, on any screen */
+body.globe-page { overflow: hidden; display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+body.globe-page > header { flex: none; }
+#stage { position: relative; flex: 1; min-height: 0; background: #050506; overflow: hidden; }
+#scene { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#scene:active { cursor: grabbing; }
+
+#labels { position: absolute; inset: 0; pointer-events: none; }
+.lbl { position: absolute; transform: translate(10px, -50%); white-space: nowrap; font-size: 12px; color: var(--g-ink);
+  text-shadow: 0 0 3px #000, 0 0 6px #000; }
+.lbl.sel { font-weight: 600; font-size: 13px; }
+.lbl .d { color: var(--g-ink2); font-weight: 400; margin-left: 6px; font-variant-numeric: tabular-nums; }
+
+#panel { position: absolute; top: 12px; left: 12px; width: 300px; max-height: calc(100% - 24px); overflow: auto;
+  background: var(--g-panel); color: var(--g-ink); border: 1px solid var(--g-ring); border-radius: 12px; padding: 10px 12px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font-size: 14px; }
+#panel button, #panel select { font: inherit; font-size: 13px; color: var(--g-ink); background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--g-ring); border-radius: 7px; padding: 6px 9px; cursor: pointer; }
+#panel select { width: 100%; }
+#panel button:hover { background: rgba(255, 255, 255, 0.12); }
+#panel button[aria-pressed="true"], #panel button[aria-selected="true"] { background: #2a78d6; border-color: #2a78d6; }
+#panel .ghost { float: right; background: transparent; border: 0; color: var(--g-ink2); padding: 2px 4px; }
+#panel .seg { display: flex; gap: 6px; margin: 2px 0 10px; clear: both; }
+#panel .seg button { flex: 1; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--g-ink2); margin: 8px 0; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 8px 0; }
+.groups { border: 0; padding: 0; margin: 8px 0; }
+.groups legend { font-size: 12px; color: var(--g-ink2); padding: 0; margin-bottom: 4px; }
+.groups label { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 3px 0; }
+.sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.sw[data-c="geo_inspector"] { background: linear-gradient(90deg, var(--g-cn) 33%, var(--g-ru) 33% 66%, var(--g-us) 66%); }
+.sw[data-c="leo_shadowing"] { background: var(--g-ru); }
+.sw[data-c="validation"] { background: var(--g-iss); }
+.sw[data-c="starlink_sample"] { background: var(--g-star); }
+.time { border-top: 1px solid var(--g-ring); margin-top: 10px; padding-top: 10px; }
+.clock { font-variant-numeric: tabular-nums; margin-bottom: 6px; }
+#scrub { width: 100%; accent-color: #3987e5; }
+#replay-controls .buttons { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 2px; }
+.time .buttons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.info { border-top: 1px solid var(--g-ring); margin-top: 10px; padding-top: 10px; }
+.info h3 { margin: 0 0 4px; font-size: 15px; }
+.info dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin: 6px 0; font-size: 13px; }
+.info dt { color: var(--g-ink2); }
+.info dd { margin: 0; font-variant-numeric: tabular-nums; }
+.info a, #replay-note a { color: #86b6ef; }
+.small { font-size: 12px; }
+#panel .muted { color: var(--g-ink2); }
+
+#banner { position: absolute; left: 324px; top: 12px; max-width: min(560px, calc(100% - 340px));
+  background: var(--g-panel); color: var(--g-ink); border: 1px solid var(--g-ring); border-left: 3px solid #d95926;
+  border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+#loading { position: absolute; right: 14px; bottom: 12px; color: var(--g-ink2); }
+
+@media (max-width: 760px) {
+  #panel { width: auto; right: 12px; top: auto; bottom: 12px; max-height: 55%; }
+  #panel.collapsed #panel-body { display: none; }
+  #banner { left: 12px; max-width: calc(100% - 24px); top: 10px; }
+}
+#panel.collapsed #panel-body { display: none; }

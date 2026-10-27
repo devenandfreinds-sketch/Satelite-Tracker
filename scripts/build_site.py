@@ -18,7 +18,8 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tracker import classify, config, db, detect, validation, watchlist  # noqa: E402
+from tracker import classify, config, db, detect, neighbors, validation, watchlist  # noqa: E402
+from tracker.elements import satrec_from_raw  # noqa: E402
 
 SITE = config.REPO_ROOT / "site"
 OUT = SITE / "data"
@@ -115,6 +116,112 @@ def geo_belt(conn, wl, ev):
     return {"t": [int(d.timestamp()) for d in days], "series": series, "burns": burns}
 
 
+# ---------- 3D globe ----------
+RE_UNIT_KM = 6378.137      # positions are exported in Earth radii
+LIVE_HOURS, LIVE_STEP_S = 24, 120
+# GEO moves slowly, so long windows at coarse steps; LEO needs fine steps, so short windows.
+REPLAY_WINDOW = {"geo": (6, 24, 300), "leo": (3, 12, 60), "other": (6, 24, 300)}  # hours before, after, step s
+REPLAY_MAX_EVENTS, REPLAY_PER_OBJECT, REPLAY_NEIGHBOURS, REPLAY_MAX_KM = 30, 3, 5, 300.0
+REPLAY_SKIP = {"validation"}  # the ISS's only "neighbour" is its own Nauka module
+
+
+def _jd_arrays(times):
+    jd = np.array([t.timestamp() / 86400.0 + 2440587.5 for t in times])
+    whole = np.floor(jd)
+    return whole, jd - whole
+
+
+def _positions(sat, times):
+    """TEME positions in Earth radii, rounded to ~1 km; None where SGP4 fails."""
+    jd, fr = _jd_arrays(times)
+    err, r, _ = sat.sgp4_array(jd, fr)
+    out = []
+    for e, p in zip(err, r):
+        out.append(None if e else [round(float(c) / RE_UNIT_KM, 4) for c in p])
+    return out
+
+
+def _orbit_path(sat, n=240):
+    """One full revolution from the set's epoch, for drawing the orbit line."""
+    period_min = 2 * math.pi / sat.no_kozai
+    start = datetime(2000, 1, 1, tzinfo=timezone.utc) + pd.Timedelta(days=(sat.jdsatepoch + sat.jdsatepochF) - 2451544.5)
+    times = [start + pd.Timedelta(minutes=period_min * k / n) for k in range(n + 1)]
+    return [p for p in _positions(sat, times) if p is not None]
+
+
+def globe_live(conn, wl):
+    """Every watchlist object over the next 24 h from its newest publishable set."""
+    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    t0 = now - pd.Timedelta(hours=1)
+    times = [t0 + pd.Timedelta(seconds=LIVE_STEP_S * k) for k in range(LIVE_HOURS * 3600 // LIVE_STEP_S + 1)]
+    objs = []
+    for w in wl:
+        got = conn.execute("SELECT fmt, raw, epoch_utc FROM elements WHERE norad_id=? AND publishable=1 "
+                           "ORDER BY epoch_jd DESC LIMIT 1", (w["norad_id"],)).fetchone()
+        if not got:
+            continue
+        sat = satrec_from_raw(got[0], got[1])
+        objs.append({"norad_id": w["norad_id"], "name": w["name"], "category": w["category"],
+                     "operator": w["operator"], "epoch_utc": got[2],
+                     "pos": _positions(sat, times), "orbit": _orbit_path(sat)})
+    return {"t0": int(t0.timestamp()), "step_s": LIVE_STEP_S, "n": len(times), "objects": objs}
+
+
+def globe_replays(conn, ev, nb, categories):
+    """Target plus closest neighbours around each event with a close approach."""
+    # Rank by approaches, not attachments: a docked pair sitting together for a
+    # day has nothing to replay, while the approach before docking does.
+    close = nb[(nb.min_range_km <= REPLAY_MAX_KM) & ~(nb.max_range_km <= 1.0)]
+    best = close.groupby("key").min_range_km.min().sort_values()
+    out, per_object = [], {}
+    for key, closest in best.items():
+        if len(out) >= REPLAY_MAX_EVENTS:
+            break
+        e = ev[ev.key == key].iloc[0]
+        nid = int(e.norad_id)
+        if categories.get(nid) in REPLAY_SKIP or per_object.get(nid, 0) >= REPLAY_PER_OBJECT:
+            continue
+        per_object[nid] = per_object.get(nid, 0) + 1
+        before_h, after_h, step = REPLAY_WINDOW[e.regime]
+        end = pd.Timestamp(e.window_end_utc).tz_convert("UTC")
+        # start shortly before the burn window, but never more than a day before its end
+        start = max(pd.Timestamp(e.window_start_utc).tz_convert("UTC") - pd.Timedelta(hours=before_h),
+                    end - pd.Timedelta(hours=24))
+        n = int(((end + pd.Timedelta(hours=after_h)) - start).total_seconds() // step) + 1
+        times = [(start + pd.Timedelta(seconds=step * k)).to_pydatetime() for k in range(n)]
+        sets = {r[0]: r for r in conn.execute(
+            "SELECT epoch_utc, fmt, raw FROM elements WHERE norad_id=? AND publishable=1 AND epoch_utc IN (?, ?)",
+            (int(e.norad_id), e.window_start_utc, e.window_end_utc))}
+        if len(sets) < 2:
+            continue
+        before = satrec_from_raw(*sets[e.window_start_utc][1:])
+        after = satrec_from_raw(*sets[e.window_end_utc][1:])
+        # Two full tracks; the page switches from one to the other exactly at the
+        # burn, so interpolation never mixes the two element sets.
+        objs = [{"norad_id": int(e.norad_id), "name": None, "role": "target",
+                 "pos": _positions(before, times), "pos_after": _positions(after, times),
+                 "orbit_before": _orbit_path(before), "orbit_after": _orbit_path(after)}]
+        when = end.to_pydatetime()
+        rows = nb[nb.key == key].sort_values("min_range_km").drop_duplicates("neighbor_norad").head(REPLAY_NEIGHBOURS)
+        for r in rows.itertuples():
+            got = neighbors._nearest_stored(conn, int(r.neighbor_norad), when, True)
+            if not got:
+                continue
+            sat = satrec_from_raw(got[0], got[1])
+            objs.append({"norad_id": int(r.neighbor_norad), "name": r.neighbor_name, "role": "neighbor",
+                         "min_range_km": _clean(r.min_range_km), "pos": _positions(sat, times), "orbit": _orbit_path(sat)})
+        rid = f"{int(e.norad_id)}-{end:%Y%m%dT%H%M}"
+        (OUT / "globe" / f"{rid}.json").write_text(json.dumps(
+            {"id": rid, "key": key, "t0": int(start.timestamp()), "step_s": step, "n": n,
+             "burn_t": int(end.timestamp()), "objects": objs}, separators=(",", ":")))
+        best_row = close[close.key == key].sort_values("min_range_km").iloc[0]
+        out.append({"id": rid, "key": key, "norad_id": int(e.norad_id), "label": e.label,
+                    "dv_total_ms": _clean(e.dv_total_ms), "closest_km": _clean(closest),
+                    "closest_name": best_row.neighbor_name, "tca_utc": best_row.tca_utc,
+                    "window_end_utc": e.window_end_utc})
+    return out
+
+
 def main():
     (OUT / "sat").mkdir(parents=True, exist_ok=True)
     wl = watchlist.load()
@@ -132,6 +239,11 @@ def main():
 
         ev["key"] = ev.norad_id.astype(str) + "|" + ev.window_end_utc
         nb["key"] = nb.norad_id.astype(str) + "|" + nb.window_end_utc
+        orphans = ~nb.key.isin(ev.key)
+        if orphans.any():
+            print(f"warn: ignoring {int(orphans.sum())} neighbour rows whose event no longer exists "
+                  "(rerun tracker.neighbors)", file=sys.stderr)
+        nb = nb[~orphans]
         keep_cols = ["key", "norad_id", "status", "window_start_utc", "window_end_utc", "confirmed_at_utc",
                      "n_pairs", "regime", "label", "routine", "campaign_id", "driver", "max_z", "z_pos",
                      "d_sma_km", "d_inc_deg", "d_ecc", "plane_change", "plane_change_deg",
@@ -182,6 +294,15 @@ def main():
         belt = geo_belt(conn, wl, ev)
         if belt:
             (OUT / "geo_belt.json").write_text(json.dumps(belt, separators=(",", ":")))
+
+        (OUT / "globe").mkdir(exist_ok=True)
+        for old in (OUT / "globe").glob("*.json"):
+            old.unlink()
+        live = globe_live(conn, wl)
+        (OUT / "globe" / "live.json").write_text(json.dumps(live, separators=(",", ":")))
+        replays = globe_replays(conn, ev, nb, {w["norad_id"]: w["category"] for w in wl})
+        (OUT / "globe" / "replays.json").write_text(json.dumps(replays, separators=(",", ":")))
+        print(f"globe: {len(live['objects'])} live objects, {len(replays)} event replays")
 
     index = {
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

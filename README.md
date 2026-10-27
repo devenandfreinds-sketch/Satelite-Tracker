@@ -36,7 +36,9 @@ python3 -m venv .venv
 python3 -m http.server 8000 --directory site
 ```
 
-Then open http://localhost:8000. It has a GEO belt map (every watchlist GEO object's mean longitude over time, coloured by country, with notable burns marked; drag to zoom, click a line or dot to open it), a filterable, sortable event list (date range, satellite, group, burn type, minimum delta-v, routine on/off), a page per event (delta-v with uncertainty, before/after orbit, closest objects, orbit charts with the burn windows shaded), a page per satellite, campaigns, and the ISS validation. Links are shareable (`#/event/...`, `#/sat/49330`).
+Then open http://localhost:8000. It has a **3D globe** (`globe.html`: every watchlist satellite moving on its real orbit around a rotating, sunlit Earth, with time controls; plus replays of close approaches, e.g. SJ-25 closing to 1.6 km of SJ-21 in June 2025, showing the before/after orbits and live distances; shareable as `globe.html?replay=<id>`), a GEO belt map (every watchlist GEO object's mean longitude over time, coloured by country, with notable burns marked; drag to zoom, click a line or dot to open it), a filterable, sortable event list (date range, satellite, group, burn type, minimum delta-v, routine on/off), a page per event (delta-v with uncertainty, before/after orbit, closest objects, orbit charts with the burn windows shaded), a page per satellite, campaigns, and the ISS validation. Links are shareable (`#/event/...`, `#/sat/49330`).
+
+Globe positions are precomputed by `build_site.py` with the same SGP4 code as the pipeline (`site/data/globe/`: 24 h of live positions, plus one file per replay loaded on demand), so the page only animates them. It uses three.js 0.160 and the Blue Marble texture from jsDelivr.
 
 The committed `site/data/` is a snapshot from 2026-10-27. When we deploy (GitHub Pages), a scheduled workflow should rebuild and publish the data as a Pages artifact instead of committing 3 MB a day.
 
