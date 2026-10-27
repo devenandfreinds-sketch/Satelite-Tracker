@@ -1,8 +1,9 @@
 """Pull element sets and store them.
 
   python -m tracker.ingest daily
-      Newest CelesTrak set for every watchlist object. Safe to run as often as
-      you like: queries repeated inside CelesTrak's ~2 h refresh are skipped.
+      Newest CelesTrak set for every watchlist object, plus the day's catalog
+      snapshot (tracker.catalog). Safe to run as often as you like: queries
+      repeated inside CelesTrak's ~2 h refresh are skipped.
 
   python -m tracker.ingest backfill --norad 25544 --start 2025-06-01 --end 2026-10-26 [--source satchecker|spacetrack]
       Historical sets for internal analysis (validation, noise models).
@@ -11,7 +12,7 @@ import argparse
 import sys
 from collections import defaultdict
 
-from . import config, db, watchlist
+from . import catalog, config, db, watchlist
 from .elements import element_row
 from .sources import celestrak, satchecker, spacetrack
 
@@ -59,6 +60,11 @@ def daily(force=False):
                 conn.commit()
         n_stored = conn.execute("SELECT COUNT(*) FROM elements").fetchone()[0]
     print(f"daily: {total_new} new element sets, {failures} failed queries, {n_stored} stored in total")
+    try:
+        catalog.pull()  # once per UTC day; screening catalog for closest-object search
+    except Exception as e:
+        failures += 1
+        print(f"error: catalog snapshot: {e}", file=sys.stderr)
     return failures
 
 

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Satelite Tracker</title>
+  <meta name="description" content="Satellite maneuvers detected in free public orbital data, with delta-v estimates and nearby objects.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <div class="brand">
+        <h1><a href="#/events">Satelite Tracker</a></h1>
+        <p class="sub">Satellite maneuvers detected in free public orbital data</p>
+      </div>
+      <nav aria-label="Sections">
+        <a href="#/events" data-tab="events">Events</a>
+        <a href="#/satellites" data-tab="satellites">Satellites</a>
+        <a href="#/campaigns" data-tab="campaigns">Campaigns</a>
+        <a href="#/validation" data-tab="validation">Validation</a>
+        <a href="#/about" data-tab="about">Method</a>
+      </nav>
+    </div>
+  </header>
+  <div class="wrap notice" role="note">
+    Analysis of public data, not precise tracking. Public element sets are accurate to about a kilometre or worse,
+    arrive a day or more after a burn, and every event here is a lead until checked against other sources.
+  </div>
+  <main class="wrap" id="app" aria-live="polite">
+    <p class="muted">Loading…</p>
+  </main>
+  <footer class="wrap foot">
+    <span id="generated"></span>
+    <span>Element sets: <a href="https://celestrak.org">CelesTrak</a>; history via
+      <a href="https://satchecker.readthedocs.io/">IAU CPS SatChecker</a> (CelesTrak-origin rows only).</span>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

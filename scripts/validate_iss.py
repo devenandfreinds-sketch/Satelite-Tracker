@@ -23,17 +23,10 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tracker import config, db, detect  # noqa: E402
+from tracker import config, db, detect, validation  # noqa: E402
 
 ISS = 25544
-TRUTH = config.REPO_ROOT / "validation" / "iss_maneuvers.csv"
-MI_KM = 1.609344
-
-# An event spans [last set before, first set after]. It matches a burn when
-# that span overlaps the burn's calendar day. NASA dates are US Eastern, so a
-# "Wednesday night" burn can be early Thursday UTC: the burn window runs from
-# 00:00Z on the date to 12:00Z the next day.
-BURN_WINDOW_END_H = 36
+MI_KM = validation.MI_KM
 
 INK, MUTED, GRID, SURFACE = "#0b0b0b", "#898781", "#e1e0d9", "#fcfcfb"
 SERIES, FLAG, EVENT = "#2a78d6", "#d03b3b", "#52514e"
@@ -49,19 +42,6 @@ def style(ax):
     ax.tick_params(colors=MUTED, labelsize=8)
 
 
-def match(events, truth):
-    truth = truth.copy()
-    truth["event"] = pd.NA
-    used = set()
-    for i, t in truth.iterrows():
-        burn_end = t.burn + pd.Timedelta(hours=BURN_WINDOW_END_H)
-        win = events[(events.end >= t.burn) & (events.start <= burn_end) & ~events.index.isin(used)]
-        if len(win):
-            truth.at[i, "event"] = win.index[0]
-            used.add(win.index[0])
-    return truth, events.drop(index=list(used))
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--all-sources", action="store_true")
@@ -75,11 +55,8 @@ def main():
     events["end"] = pd.to_datetime(events.window_end_utc, utc=True)
     events["confirmed"] = pd.to_datetime(events.confirmed_at_utc, utc=True)
 
-    truth = pd.read_csv(TRUTH, comment="#")
-    truth["burn"] = pd.to_datetime(truth.burn_date).dt.tz_localize("UTC")
     lo, hi = hist.epoch.min(), hist.epoch.max()
-    truth = truth[(truth.burn >= lo) & (truth.burn <= hi)].reset_index(drop=True)
-    truth, unmatched = match(events, truth)
+    truth, unmatched = validation.match(events, validation.load_truth(lo, hi))
     hits = truth[truth.event.notna()].copy()
     hits = hits.join(events, on="event", rsuffix="_ev")
     n_hit = len(hits)

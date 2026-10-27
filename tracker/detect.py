@@ -33,7 +33,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from . import db, watchlist
+from . import classify, db, watchlist
 from .elements import MU_EARTH
 from .residuals import _j2_raan_rate_deg_day, compute as compute_residuals
 
@@ -80,8 +80,28 @@ CREATE TABLE IF NOT EXISTS maneuver_events (
     after_perigee_km   REAL, after_apogee_km REAL, after_inc_deg REAL,
     intrack_resid_km   REAL,
     z_pos              REAL,
+    regime             TEXT,               -- geo | leo | other
+    label              TEXT,               -- see tracker/classify.py
+    routine            INTEGER,            -- 1 = looks like ordinary upkeep
+    lon_before_deg     REAL, lon_after_deg REAL,               -- GEO only
+    drift_before_deg_day REAL, drift_after_deg_day REAL,       -- GEO only
+    campaign_id        TEXT,
     detected_run_utc   TEXT NOT NULL,
     UNIQUE (norad_id, data_scope, window_end_utc)
+);
+
+CREATE TABLE IF NOT EXISTS maneuver_campaigns (
+    campaign_id        TEXT NOT NULL,
+    norad_id           INTEGER NOT NULL,
+    data_scope         TEXT NOT NULL,
+    start_utc          TEXT NOT NULL,
+    end_utc            TEXT NOT NULL,
+    n_events           INTEGER NOT NULL,
+    span_days          REAL,
+    total_dv_ms        REAL, total_dv_sigma_ms REAL,
+    net_d_sma_km       REAL,
+    labels             TEXT,
+    PRIMARY KEY (campaign_id, data_scope)
 );
 """
 
@@ -302,7 +322,7 @@ def detect(history):
         # elements) dominates element noise. Against NASA-stated ISS orbit
         # changes the SMA estimate scatters ~4%, so carry a 5% floor.
         dv_sig = math.hypot(dv_sig, DV_SYSTEMATIC_FRACTION * dv_tot)
-        events.append({
+        ev = {
             "status": "confirmed" if persist else "provisional",
             "plane_change": int(plane_real),
             "window_start_utc": before.epoch_utc,
@@ -321,8 +341,22 @@ def detect(history):
             "after_inc_deg": after.inclination_deg,
             "intrack_resid_km": float(r.loc[g, "res_intrack_km"].abs().max()),
             "z_pos": float(r.loc[g, "z_pos"].max()),
-        })
-    return pd.DataFrame(events), r, dropped
+        }
+        reg, lab, routine, extras = classify.label(ev, before, after)
+        ev.update(regime=reg, label=lab, routine=int(routine), **extras)
+        events.append(ev)
+    events = pd.DataFrame(events)
+    nid = int(history.norad_id.iloc[0])
+    campaign_rows = classify.campaigns(events, nid) if len(events) else []
+    events.attrs["campaigns"] = campaign_rows
+    return events, r, dropped
+
+
+def _insert(conn, table, row):
+    row = {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in row.items()}
+    cols = list(row)
+    conn.execute(f"INSERT INTO {table} ({','.join(cols)}) VALUES ({','.join('?' * len(cols))})",
+                 [row[c] for c in cols])
 
 
 def run(norad_ids, publishable_only=True):
@@ -338,11 +372,12 @@ def run(norad_ids, publishable_only=True):
                 continue
             ev, r, dropped = detect(h)
             conn.execute("DELETE FROM maneuver_events WHERE norad_id=? AND data_scope=?", (nid, scope))
+            conn.execute("DELETE FROM maneuver_campaigns WHERE norad_id=? AND data_scope=?", (nid, scope))
             for e in ev.to_dict("records"):
                 e.update(norad_id=nid, data_scope=scope, detected_run_utc=run_at)
-                cols = list(e)
-                conn.execute(f"INSERT INTO maneuver_events ({','.join(cols)}) VALUES ({','.join('?' * len(cols))})",
-                             [e[c] for c in cols])
+                _insert(conn, "maneuver_events", e)
+            for c in ev.attrs.get("campaigns", []):
+                _insert(conn, "maneuver_campaigns", {**c, "data_scope": scope})
             summary.append((nid, len(h), len(ev), len(dropped), ""))
     return summary
 

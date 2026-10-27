@@ -21,6 +21,34 @@ We use the orbit normal instead of inclination and RAAN for plane changes, becau
 
 The noise window keeps every pair, burns included. An earlier version excluded flagged pairs from the window, which seems safer but has a failure mode: when an object's noise genuinely rises, everything gets flagged, the noise estimate freezes, and the detector never recovers. On the ISS with all sources, that produced 97 false events from April 2026 onward. The median and MAD already ignore the occasional burn.
 
+## Labels and campaigns (`tracker/classify.py`)
+
+Each event gets a label describing what the burn did to the orbit, not why. The regime comes from the pre-burn orbit (GEO: 0.9 to 1.1 rev/day and e < 0.05).
+
+- **GEO.** Longitude is the *mean* longitude (node + argument of perigee + mean anomaly − GMST). That removes the daily east-west wobble an inclined or eccentric orbit traces; the instantaneous sub-satellite longitude moves 1 to 3° depending on when each set was fitted. Drift rate is (n − 1.00273791 rev/day) × 360. A satellite is "holding" if |drift| < 0.05°/day.
+  - `geo_ew_stationkeeping`: holding before and after, longitude within 0.5°, in-plane, Δv ≤ 1 m/s. **Routine.**
+  - `geo_ns_stationkeeping`: holding, within 0.5°, a plane change that moves the inclination vector toward or through zero (cosine ≥ 0.7 with the pull toward i = 0), Δv ≤ 60 m/s. **Routine.**
+  - `geo_drift_start`, `geo_drift_stop`, `geo_drift_change`, `geo_relocation`, `geo_plane_change`, `geo_maneuver`: everything else. These are what inspection, rendezvous and repositioning look like.
+- **LEO and other.** `altitude_maintenance` (a raise under 10 km in LEO, e.g. drag makeup; **routine**), `orbit_raise`, `orbit_lowering`, `plane_change` (the plane change carries most of the Δv). In eccentric orbits SMA alone misleads, so perigee and apogee decide: `circularization` (perigee up, apogee down, e.g. Cosmos 2589's transfer to GEO) and `eccentricity_raise`.
+
+"Routine" only decides what gets screened and shown first. It is never evidence of benign intent: small altitude tweaks are also how a satellite holds station on another one, so every event for `leo_shadowing` objects is screened regardless.
+
+A **campaign** is a run of non-routine events on one object with gaps of at most 3 days, or a single event the detector merged across three or more fits spanning more than 3 days. Routine events break a run.
+
+## Closest-object search (`tracker/neighbors.py`)
+
+For each non-routine event (and every event on `leo_shadowing` objects), find what the satellite ended up near in the 24 h after the burn.
+
+1. **Screening catalog.** A daily snapshot (`tracker/catalog.py`) of CelesTrak's active payloads (~17k) and the GEO protected zone list (`SPECIAL=gpz-plus`, ~1.7k objects including dead satellites, rocket bodies and debris), plus the watchlist.
+2. **Candidates by orbit similarity.** GEO: mean longitude within 2° at the event time, extrapolated from the snapshot with each object's drift rate ("colocated"). Other regimes: overlapping altitude band and orbit planes within 3°, with RAAN carried back to the event time using J2 ("coplanar"). This is the geometry of inspection and shadowing.
+3. **Time-matched elements.** The 12 best candidates are screened with element sets from the event's own time: the stored set nearest the event (−3 d to +12 h), else a one-time SatChecker backfill of that object's history. Requests are spaced 1 s apart, retried with backoff, and stop for the run after 5 consecutive failures. A first version without this got cut off by SatChecker after ~340 requests.
+4. **Screening.** Both objects are propagated with SGP4 over the 24 h after the event (5 min steps in GEO, 20 s in LEO). We record the minimum range, its time, the range at the first post-burn epoch, the GEO longitude gap, and the neighbour set's age. GEO candidates that were actually more than 2° away at the event time are dropped. An object that stays within 1 km all day is reported as **attached** (docked, or catalogued as part of the same body, like ISS (NAUKA)).
+5. **Crossings.** When a snapshot is within a few days of the event (1.5 d LEO, 7 d GEO), every snapshot object in the altitude band is also brute-force screened for close crossings. For historical events only today's snapshot exists, so this covers recent events only.
+
+Limits: CelesTrak has no public list of LEO debris and rocket bodies, so LEO neighbours are active payloads only. Objects launched after the event or decayed since are missed by the candidate step. Ranges inherit public-element errors (about a km for a fresh LEO set, tens of km in GEO) and grow with the neighbour set's age, which is stored with every row.
+
+**First result.** The search independently recovers the SJ-21 / SJ-25 rendezvous: SJ-25 is SJ-21's closest neighbour after every one of SJ-21's burns from June 2025. It made close passes of 0.3 km (2025-06-11) and 1.6 km (2025-06-29) while staying within ~140 to 210 km on most days, then from 2025-07-02 stayed within about 1 km all day, and the two share element sets from August. Other close approaches worth checking: Luch-5X (Olymp-K 2) to within 6.5 km of Intelsat 39 (2026-02-27) and 16.5 km (2026-06-10); Cosmos 2589 within 13 to 63 km of Chinese and Japanese comsats in 2026 (ZhongXing-2E, ZhongXing-11, JCSAT-3A).
+
 ## Approach and why
 
 The published TLE maneuver-detection work mostly uses one of two signals:
@@ -71,7 +99,5 @@ The detector ran on all 73 objects over 17 months of public history: 22 events o
 
 ## Next
 
-- Closest-object search after each event, against the current public catalog (live events only; historical catalog states are not available for free).
-- Label routine GEO station-keeping so it is not reported as notable, and label multi-burn campaigns.
 - Out-of-sample validation: score new ISS reboosts as they happen, and find a second object with published maneuver records.
 - Event write-up template and the public dashboard (milestone 3).
