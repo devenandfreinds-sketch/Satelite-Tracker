@@ -32,11 +32,14 @@ def save(rows, path=None):
     # Write a temp file then rename, so a failed write never truncates the watchlist.
     path = Path(path or config.WATCHLIST_PATH)
     tmp = path.with_suffix(".csv.tmp")
-    with open(tmp, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n")
-        w.writeheader()
-        w.writerows(rows)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n")
+            w.writeheader()
+            w.writerows(rows)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def verify():

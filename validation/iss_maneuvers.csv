@@ -4,21 +4,22 @@
 # date_basis: stated_date | resolved_weekday (post says "Wednesday", resolved against post date) | post_date_today | caption
 # Coverage gap: the blog was dark during the Oct 1 to mid-Nov 2025 shutdown; Oct 14 and Nov 7 come from a later retrospective list.
 # 2025-09-25 was aborted ~3 min 45 s into a planned 19 min burn; kept because the engines fired and the orbit changed.
-burn_date,date_basis,vehicle,maneuver_type,duration,orbit_change,source_url
-2025-07-16,resolved_weekday,Progress 91,reboost,nearly 12 min,not given,https://www.nasa.gov/blogs/spacestation/2025/07/16/muscle-and-exercise-studies-to-maintain-crew-health-in-space/
-2025-08-14,caption,Progress 91,reboost,not given,not given,https://www.nasa.gov/image-detail/amf-iss073e0429326/
-2025-09-03,stated_date,Dragon CRS-33,reboost,5 min 3 s,~1 mi at perigee; 260.9 x 256.3 mi,https://www.nasa.gov/blogs/spacestation/2025/09/03/nasa-spacex-complete-dragon-space-station-reboost/
-2025-09-25,resolved_weekday,Dragon CRS-33,reboost (aborted),~3 min 45 s,not given,https://www.nasa.gov/blogs/spacestation/2025/09/25/space-medicine-protecting-crews-station-reboost-aborted/
-2025-09-26,resolved_weekday,Dragon CRS-33,reboost,15 min,not given,https://www.nasa.gov/blogs/spacestation/2025/09/26/crew-studies-space-orientation-dna-data-storage-as-dragon-reboosts-station/
-2025-10-14,stated_date,Dragon CRS-33,reboost,not given,not given,https://www.nasa.gov/blogs/spacestation/2025/12/29/spacex-dragon-boosts-stations-orbit/
-2025-11-07,stated_date,Dragon CRS-33,reboost,not given,not given,https://www.nasa.gov/blogs/spacestation/2025/12/29/spacex-dragon-boosts-stations-orbit/
-2025-11-19,stated_date,Progress 93,reboost,14 min 7 s,+1 mi apogee +2.3 mi perigee; 265.5 x 255.9 mi,https://www.nasa.gov/blogs/spacestation/2025/11/19/station-orbiting-higher-as-exercise-research-and-maintenance-continue/
-2025-12-29,stated_date,Dragon CRS-33,reboost,19+ min,+1.6 mi apogee +1.9 mi perigee; 263.5 x 257.8 mi,https://www.nasa.gov/blogs/spacestation/2025/12/29/spacex-dragon-boosts-stations-orbit/
-2026-01-23,stated_date,Dragon CRS-33,reboost,26 min 11 s,+3.1 mi apogee +2.3 mi perigee; 269 x 255 mi,https://www.nasa.gov/blogs/spacestation/2026/01/23/crew-studies-cardiac-research-artificial-intelligence-as-dragon-boosts-stations-orbit/
-2026-02-18,resolved_weekday,Progress 93,reboost,10 min 55 s,+2 mi perigee; 269.2 x 255 mi,https://www.nasa.gov/blogs/spacestation/2026/02/19/thursday-packed-with-human-research-as-stations-orbit-is-boosted/
-2026-03-13,post_date_today,Progress 93,reboost,10 min 30 s,+0.5 mi apogee +0.9 mi perigee; 266 x 257 mi,https://www.nasa.gov/blogs/spacestation/2026/03/13/week-wraps-with-space-biology-spacewalk-preps-and-space-station-reboost/
-2026-04-15,resolved_weekday,Progress 93,reboost,just over 5 min,not given,https://www.nasa.gov/blogs/spacestation/2026/04/16/station-orbits-higher-as-crew-runs-new-science-experiments/
-2026-06-10,resolved_weekday,Progress 95,reboost,8+ min,+1.9 mi,https://www.nasa.gov/blogs/spacestation/2026/06/10/expedition-74-works-scientific-installs-suit-prep-ahead-of-canadarm2-repair-spacewalk/
-2026-07-01,resolved_weekday,Progress 95,reboost,9.5 min,not given,https://www.nasa.gov/blogs/spacestation/2026/07/02/cartilage-cardiac-studies-and-cargo-ops-wrap-up-week-aboard-station/
-2026-08-27,post_date_today,Cygnus XL,reboost,20 min 43 s,+0.2 mi apogee +2.6 mi perigee; 266.5 x 254.9 mi,https://www.nasa.gov/blogs/spacestation/2026/08/27/nasa-northrop-grumman-complete-cygnus-xl-space-station-reboost/
-2026-09-25,post_date_today,Cygnus XL,reboost,18 min,+1.5 mi apogee +0.8 mi perigee; 265.5 x 256.8 mi,https://www.nasa.gov/blogs/spacestation/2026/09/25/nasa-northrop-grumman-complete-cygnus-xl-space-station-reboost-2/
+# d_apogee_mi / d_perigee_mi: NASA-stated changes in statute miles, blank when not stated.
+burn_date,date_basis,vehicle,maneuver_type,duration,orbit_change,source_url,d_apogee_mi,d_perigee_mi
+2025-07-16,resolved_weekday,Progress 91,reboost,nearly 12 min,not given,https://www.nasa.gov/blogs/spacestation/2025/07/16/muscle-and-exercise-studies-to-maintain-crew-health-in-space/,,
+2025-08-14,caption,Progress 91,reboost,not given,not given,https://www.nasa.gov/image-detail/amf-iss073e0429326/,,
+2025-09-03,stated_date,Dragon CRS-33,reboost,5 min 3 s,~1 mi at perigee; 260.9 x 256.3 mi,https://www.nasa.gov/blogs/spacestation/2025/09/03/nasa-spacex-complete-dragon-space-station-reboost/,,1
+2025-09-25,resolved_weekday,Dragon CRS-33,reboost (aborted),~3 min 45 s,not given,https://www.nasa.gov/blogs/spacestation/2025/09/25/space-medicine-protecting-crews-station-reboost-aborted/,,
+2025-09-26,resolved_weekday,Dragon CRS-33,reboost,15 min,not given,https://www.nasa.gov/blogs/spacestation/2025/09/26/crew-studies-space-orientation-dna-data-storage-as-dragon-reboosts-station/,,
+2025-10-14,stated_date,Dragon CRS-33,reboost,not given,not given,https://www.nasa.gov/blogs/spacestation/2025/12/29/spacex-dragon-boosts-stations-orbit/,,
+2025-11-07,stated_date,Dragon CRS-33,reboost,not given,not given,https://www.nasa.gov/blogs/spacestation/2025/12/29/spacex-dragon-boosts-stations-orbit/,,
+2025-11-19,stated_date,Progress 93,reboost,14 min 7 s,+1 mi apogee +2.3 mi perigee; 265.5 x 255.9 mi,https://www.nasa.gov/blogs/spacestation/2025/11/19/station-orbiting-higher-as-exercise-research-and-maintenance-continue/,1,2.3
+2025-12-29,stated_date,Dragon CRS-33,reboost,19+ min,+1.6 mi apogee +1.9 mi perigee; 263.5 x 257.8 mi,https://www.nasa.gov/blogs/spacestation/2025/12/29/spacex-dragon-boosts-stations-orbit/,1.6,1.9
+2026-01-23,stated_date,Dragon CRS-33,reboost,26 min 11 s,+3.1 mi apogee +2.3 mi perigee; 269 x 255 mi,https://www.nasa.gov/blogs/spacestation/2026/01/23/crew-studies-cardiac-research-artificial-intelligence-as-dragon-boosts-stations-orbit/,3.1,2.3
+2026-02-18,resolved_weekday,Progress 93,reboost,10 min 55 s,+2 mi perigee; 269.2 x 255 mi,https://www.nasa.gov/blogs/spacestation/2026/02/19/thursday-packed-with-human-research-as-stations-orbit-is-boosted/,,2
+2026-03-13,post_date_today,Progress 93,reboost,10 min 30 s,+0.5 mi apogee +0.9 mi perigee; 266 x 257 mi,https://www.nasa.gov/blogs/spacestation/2026/03/13/week-wraps-with-space-biology-spacewalk-preps-and-space-station-reboost/,0.5,0.9
+2026-04-15,resolved_weekday,Progress 93,reboost,just over 5 min,not given,https://www.nasa.gov/blogs/spacestation/2026/04/16/station-orbits-higher-as-crew-runs-new-science-experiments/,,
+2026-06-10,resolved_weekday,Progress 95,reboost,8+ min,+1.9 mi,https://www.nasa.gov/blogs/spacestation/2026/06/10/expedition-74-works-scientific-installs-suit-prep-ahead-of-canadarm2-repair-spacewalk/,,
+2026-07-01,resolved_weekday,Progress 95,reboost,9.5 min,not given,https://www.nasa.gov/blogs/spacestation/2026/07/02/cartilage-cardiac-studies-and-cargo-ops-wrap-up-week-aboard-station/,,
+2026-08-27,post_date_today,Cygnus XL,reboost,20 min 43 s,+0.2 mi apogee +2.6 mi perigee; 266.5 x 254.9 mi,https://www.nasa.gov/blogs/spacestation/2026/08/27/nasa-northrop-grumman-complete-cygnus-xl-space-station-reboost/,0.2,2.6
+2026-09-25,post_date_today,Cygnus XL,reboost,18 min,+1.5 mi apogee +0.8 mi perigee; 265.5 x 256.8 mi,https://www.nasa.gov/blogs/spacestation/2026/09/25/nasa-northrop-grumman-complete-cygnus-xl-space-station-reboost-2/,1.5,0.8

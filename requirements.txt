@@ -6,3 +6,4 @@ requests==2.32.5
 matplotlib==3.9.4
 # urllib3 2.x warns on macOS's system Python (LibreSSL); 1.26 is fully supported by requests.
 urllib3==1.26.20
+pytest==8.3.3

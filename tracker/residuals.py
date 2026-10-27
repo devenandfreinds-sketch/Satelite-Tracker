@@ -6,7 +6,8 @@ For each pair (previous set, new set) we
      position difference in the new set's radial / in-track / cross-track
      (RIC) frame, and
   2. difference the mean elements (semi-major axis, eccentricity,
-     inclination, RAAN), removing the RAAN drift that J2 alone predicts.
+     inclination, RAAN, and the orbit-normal vector), removing the RAAN drift
+     that J2 alone predicts.
 
 A burn shows up as an in-track residual far above the usual few km, with a
 step in mean semi-major axis. Natural drag only gives a slow, smooth decay.
@@ -38,6 +39,13 @@ def _j2_raan_rate_deg_day(a_km, e, inc_deg):
     return math.degrees(rate) * 86400.0
 
 
+def orbit_normal(inc_deg, raan_deg):
+    """Unit orbit normal. Unlike RAAN, it is well defined at zero inclination,
+    which matters for GEO where RAAN can flip by ~180 deg between fits."""
+    i, o = math.radians(inc_deg), math.radians(raan_deg)
+    return np.array([math.sin(i) * math.sin(o), -math.sin(i) * math.cos(o), math.cos(i)])
+
+
 def _wrap180(x):
     return (x + 180.0) % 360.0 - 180.0
 
@@ -62,6 +70,9 @@ def compute(history):
         r1, r2, v2 = np.array(r1), np.array(r2), np.array(v2)
         dr, di, dc = _ric(r2, v2, r1 - r2)
         raan_pred = _j2_raan_rate_deg_day(p.sma_km, p.eccentricity, p.inclination_deg) * dt_days
+        # Change in the orbit normal after removing J2 nodal drift. Its length
+        # is the chord 2 sin(theta/2) of the plane-change angle theta.
+        dn = orbit_normal(c.inclination_deg, c.raan_deg) - orbit_normal(p.inclination_deg, p.raan_deg + raan_pred)
         out.append({
             "epoch": c.epoch,
             "prev_epoch": p.epoch,
@@ -76,6 +87,7 @@ def compute(history):
             "d_ecc": c.eccentricity - p.eccentricity,
             "d_inc_deg": c.inclination_deg - p.inclination_deg,
             "d_raan_resid_deg": _wrap180(c.raan_deg - p.raan_deg - raan_pred),
+            "d_nx": dn[0], "d_ny": dn[1], "d_nz": dn[2],
             "perigee_alt_km": c.perigee_alt_km,
             "apogee_alt_km": c.apogee_alt_km,
         })
