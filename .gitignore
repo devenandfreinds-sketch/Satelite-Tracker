@@ -6,7 +6,7 @@ __pycache__/
 
 # The database holds Space-Track-origin rows that must never be redistributed.
 # Keep it out of git entirely; public output is exported from it separately.
-data/
+/data/
 
 # Figures built with Space-Track-origin data are internal only.
 reports/*all_sources*
