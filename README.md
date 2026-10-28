@@ -1,4 +1,4 @@
-# Satelite Tracker
+# Space Gazers
 
 A public tracker that detects satellite maneuvers (thruster burns) from free public orbital data, then publishes analysis of the notable ones.
 

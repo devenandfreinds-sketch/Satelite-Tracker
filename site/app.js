@@ -1,4 +1,4 @@
-/* Satelite Tracker dashboard. Static: reads data/index.json and data/sat/<norad>.json,
+/* Space Gazers dashboard. Static: reads data/index.json and data/sat/<norad>.json,
    written by scripts/build_site.py from publishable (CelesTrak-origin) data only.
    All data strings go into the DOM via textContent. */
 (() => {
