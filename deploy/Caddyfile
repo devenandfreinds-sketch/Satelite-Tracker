@@ -1,0 +1,7 @@
+# Railway sets PORT; default to 8080 for a local `docker run`.
+:{$PORT:8080} {
+	root * /srv
+	encode zstd gzip
+	header /data/* Cache-Control "public, max-age=300"
+	file_server
+}
