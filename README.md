@@ -36,7 +36,7 @@ python3 -m venv .venv
 python3 -m http.server 8000 --directory site
 ```
 
-Then open http://localhost:8000. It has a **3D globe** (`globe.html`: every watchlist satellite moving on its real orbit around a rotating, sunlit Earth, with time controls; plus replays of close approaches, e.g. SJ-25 closing to 1.6 km of SJ-21 in June 2025, showing the before/after orbits and live distances; shareable as `globe.html?replay=<id>`), a GEO belt map (every watchlist GEO object's mean longitude over time, coloured by country, with notable burns marked; drag to zoom, click a line or dot to open it), a filterable, sortable event list (date range, satellite, group, burn type, minimum delta-v, routine on/off), a page per event (delta-v with uncertainty, before/after orbit, closest objects, orbit charts with the burn windows shaded), a page per satellite, campaigns, and the ISS validation. Links are shareable (`#/event/...`, `#/sat/49330`).
+Then open http://localhost:8000. The front page is a **3D globe beside the list of detected maneuvers** (click one to replay it or fly to the satellite; shareable as `?event=<key>`): every watchlist satellite moving on its real orbit around a rotating, sunlit Earth, with time controls; plus replays of close approaches, e.g. SJ-25 closing to 1.6 km of SJ-21 in June 2025, showing the before/after orbits and live distances; shareable as `?replay=<id>`). The rest lives in `dashboard.html`:, a GEO belt map (every watchlist GEO object's mean longitude over time, coloured by country, with notable burns marked; drag to zoom, click a line or dot to open it), a filterable, sortable event list (date range, satellite, group, burn type, minimum delta-v, routine on/off), a page per event (delta-v with uncertainty, before/after orbit, closest objects, orbit charts with the burn windows shaded), a page per satellite, campaigns, and the ISS validation. Links are shareable (`#/event/...`, `#/sat/49330`).
 
 Globe positions are precomputed by `build_site.py` with the same SGP4 code as the pipeline (`site/data/globe/`: 24 h of live positions, plus one file per replay loaded on demand), so the page only animates them. It uses three.js 0.160 and the Blue Marble texture from jsDelivr.
 
@@ -92,7 +92,7 @@ tracker/
 validation/iss_maneuvers.csv  NASA-reported ISS burns (ground truth), each with a nasa.gov URL
 scripts/validate_iss.py     ISS validation: hit rate, unmatched events, latency, size vs NASA
 scripts/build_site.py       publishable-only export for the dashboard
-site/                       static dashboard (index.html, app.js, style.css, data/)
+site/                       static site: index.html + globe.js (globe and event list), dashboard.html + app.js (tables, charts), data/
 tests/                      pytest: synthetic burns, bad fits, delta-v, watchlist safeguards
 reports/                    generated figures
 docs/METHOD.md              detection method, literature, and accuracy limits

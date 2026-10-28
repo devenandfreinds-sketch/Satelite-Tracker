@@ -290,10 +290,11 @@
 
   async function viewEvent(app, key) {
     const e = D.events.find((x) => x.key === key);
-    if (!e) { app.append(h("p", {}, "Event not found. "), h("a", { href: "#/events" }, "Back to events")); return; }
+    if (!e) { app.append(h("p", {}, "Event not found. "), h("a", { href: "index.html" }, "Back to events")); return; }
     const s = sat(e.norad_id);
-    app.append(h("a", { class: "back", href: "#/events" }, "← All events"));
+    app.append(h("a", { class: "back", href: "index.html" }, "← All events"));
     app.append(h("h2", {}, `${s ? s.name : e.norad_id}: ${labelName(e.label)}`));
+    app.append(h("p", {}, h("a", { href: `index.html?event=${encodeURIComponent(key)}` }, "Show on the globe →")));
     app.append(h("p", { class: "ink2", style: "margin-top:0" }, `Burn between ${dt(e.window_start_utc)} and ${dt(e.window_end_utc)}. `,
       e.status === "confirmed" ? `Confirmed by the set at ${dt(e.confirmed_at_utc)}.` : "Provisional: the next element set has not arrived yet.",
       e.campaign_id ? [" Part of ", h("a", { href: "#/campaigns" }, "a multi-burn campaign"), "."] : ""));

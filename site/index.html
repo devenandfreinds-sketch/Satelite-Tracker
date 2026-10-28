@@ -4,41 +4,138 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Space Gazers</title>
-  <meta name="description" content="Satellite maneuvers detected in free public orbital data, with delta-v estimates and nearby objects.">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
+  <meta name="description" content="Satellite maneuvers detected in free public orbital data, on a 3D globe with replays of close approaches.">
+  <script>
+    // old dashboard links (index.html#/event/...) now live on dashboard.html
+    const toDashboard = () => { if (location.hash.startsWith("#/")) location.replace("dashboard.html" + location.hash); };
+    toDashboard();
+    addEventListener("hashchange", toDashboard);
+  </script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="globe.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
 </head>
-<body>
+<body class="globe-page">
   <header class="top">
     <div class="wrap">
       <div class="brand">
-        <h1><a href="#/events">Space Gazers</a></h1>
+        <h1><a href="index.html">Space Gazers</a></h1>
         <p class="sub">Satellite maneuvers detected in free public orbital data</p>
       </div>
       <nav aria-label="Sections">
-        <a href="#/events" data-tab="events">Events</a>
-        <a href="#/satellites" data-tab="satellites">Satellites</a>
-        <a href="globe.html">Globe</a>
-        <a href="#/belt" data-tab="belt">GEO belt</a>
-        <a href="#/campaigns" data-tab="campaigns">Campaigns</a>
-        <a href="#/validation" data-tab="validation">Validation</a>
-        <a href="#/about" data-tab="about">Method</a>
+        <a href="index.html" aria-current="page">Events</a>
+        <a href="dashboard.html#/satellites">Satellites</a>
+        <a href="dashboard.html#/belt">GEO belt</a>
+        <a href="dashboard.html#/campaigns">Campaigns</a>
+        <a href="dashboard.html#/validation">Validation</a>
+        <a href="dashboard.html#/about">Method</a>
       </nav>
     </div>
   </header>
-  <div class="wrap notice" role="note">
-    Analysis of public data, not precise tracking. Public element sets are accurate to about a kilometre or worse,
-    arrive a day or more after a burn, and every event here is a lead until checked against other sources.
+
+  <div id="home">
+  <div id="stage" aria-label="3D view of Earth and satellites">
+    <canvas id="scene"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+
+    <section id="panel" aria-label="Globe controls">
+      <button id="collapse" class="ghost" aria-expanded="true" aria-controls="panel-body" title="Hide controls">Controls</button>
+      <div id="panel-body">
+        <div class="seg" role="tablist" aria-label="Mode">
+          <button role="tab" id="mode-live" aria-selected="true">Now</button>
+          <button role="tab" id="mode-replay" aria-selected="false">Replay a maneuver</button>
+        </div>
+
+        <div id="live-controls">
+          <label class="field">Find a satellite
+            <select id="pick"><option value="">Choose…</option></select>
+          </label>
+          <fieldset class="groups">
+            <legend>Show</legend>
+            <label><input type="checkbox" data-group="geo_inspector" checked> <span class="sw" data-c="geo_inspector"></span>GEO inspectors</label>
+            <label><input type="checkbox" data-group="leo_shadowing" checked> <span class="sw" data-c="leo_shadowing"></span>LEO close approaches</label>
+            <label><input type="checkbox" data-group="validation" checked> <span class="sw" data-c="validation"></span>ISS</label>
+            <label><input type="checkbox" data-group="starlink_sample" checked> <span class="sw" data-c="starlink_sample"></span>Starlink sample</label>
+          </fieldset>
+        </div>
+
+        <div id="replay-controls" hidden>
+          <label class="field">Maneuver
+            <select id="replay-pick"></select>
+          </label>
+          <p id="replay-note" class="small"></p>
+          <div class="buttons">
+            <button id="jump-burn">Jump to the burn</button>
+            <button id="jump-tca">Jump to closest approach</button>
+          </div>
+        </div>
+
+        <label class="field">Orbit lines
+          <select id="orbits">
+            <option value="selected">Selected satellite only</option>
+            <option value="all">All</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="follow" checked> Camera follows the selected satellite</label>
+
+        <div class="time">
+          <div class="clock"><strong id="clock">–</strong> <span id="speed-label" class="small"></span></div>
+          <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Time">
+          <div class="buttons">
+            <button id="play" aria-pressed="true">Pause</button>
+            <button data-speed="1">1×</button>
+            <button data-speed="60">1 min/s</button>
+            <button data-speed="600">10 min/s</button>
+            <button data-speed="3600">1 h/s</button>
+          </div>
+        </div>
+
+        <div id="info" class="info" hidden></div>
+        <p class="small muted">Positions are SGP4 propagations of public element sets: about a km off in LEO, tens of km in GEO. Drag to rotate, scroll to zoom, click a satellite.</p>
+      </div>
+    </section>
+
+    <div id="banner" role="status" hidden></div>
+    <div id="loading" class="small">Loading globe…</div>
   </div>
-  <main class="wrap" id="app" aria-live="polite">
-    <p class="muted">Loading…</p>
-  </main>
-  <footer class="wrap foot">
-    <span id="generated"></span>
-    <span>Element sets: <a href="https://celestrak.org">CelesTrak</a>; history via
-      <a href="https://satchecker.readthedocs.io/">IAU CPS SatChecker</a> (CelesTrak-origin rows only).</span>
-  </footer>
-  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
-  <script src="app.js"></script>
+
+  <aside id="events" aria-label="Detected maneuvers">
+    <div class="ev-head">
+      <h2>Detected maneuvers</h2>
+      <p id="ev-stats" class="small ink2"></p>
+      <div class="ev-seg" role="group" aria-label="Which maneuvers">
+        <button type="button" data-show="notable" aria-pressed="true">Notable</button>
+        <button type="button" data-show="replay" aria-pressed="false">With replay</button>
+        <button type="button" data-show="all" aria-pressed="false">All</button>
+      </div>
+      <div class="ev-filters">
+        <input type="search" id="ev-q" placeholder="Satellite or NORAD ID" aria-label="Search satellites">
+        <select id="ev-group" aria-label="Group">
+          <option value="_watch">Watch targets</option>
+          <option value="geo_inspector">GEO inspectors</option>
+          <option value="leo_shadowing">LEO close approaches</option>
+          <option value="validation">ISS</option>
+          <option value="starlink_sample">Starlink sample</option>
+          <option value="">All groups</option>
+        </select>
+      </div>
+      <p id="ev-count" class="small muted"></p>
+    </div>
+    <ol id="ev-list"></ol>
+    <div class="ev-foot small">
+      <p><a href="dashboard.html#/events">Full table with date, type and Δv filters →</a></p>
+      <p class="muted">Analysis of public data, not precise tracking. Public element sets are accurate to about a kilometre or worse and arrive a day or more after a burn; every event is a lead until checked against other sources.</p>
+      <p class="muted" id="generated"></p>
+    </div>
+  </aside>
+  </div>
+
+  <script type="module" src="globe.js"></script>
 </body>
 </html>

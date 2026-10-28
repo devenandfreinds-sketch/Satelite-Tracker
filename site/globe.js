@@ -236,7 +236,7 @@ canvas.addEventListener("pointerdown", (ev) => { downAt = [ev.clientX, ev.client
 canvas.addEventListener("pointerup", (ev) => {
   if (!downAt || Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 4) return;  // a drag, not a click
   const o = pick(ev);
-  if (o) select(o, true);
+  if (o) { select(o, true); if (S.mode === "live") filterToSat(o); }
 });
 
 // ---------- selection & info ----------
@@ -303,7 +303,7 @@ function renderInfo() {
       el("dt", {}, "Period"), el("dd", {}, f && f.period ? `${fmt(f.period, 0)} min` : "–"),
       S.mode === "live" ? [el("dt", {}, "Elements from"), el("dd", {}, (o.epoch_utc || "").slice(0, 16).replace("T", " ") + "Z")] : null,
       el("dt", {}, "Maneuvers"), el("dd", {}, `${evs.length} detected, ${evs.filter((e) => !e.routine).length} not routine`)),
-    S.sats[o.norad_id] ? el("a", { href: `index.html#/sat/${o.norad_id}` }, "Orbit history and maneuvers →") : null);
+    S.sats[o.norad_id] ? el("a", { href: `dashboard.html#/sat/${o.norad_id}` }, "Orbit history and maneuvers →") : null);
 }
 
 function updateInfoLive(positions) {
@@ -337,11 +337,11 @@ async function startLive() {
 }
 
 async function startReplay(id) {
-  S.mode = "replay";
   const meta = S.replays.find((r) => r.id === id) || S.replays[0];
   if (!meta) return;
   $("replay-pick").value = meta.id;
   const d = await loadJSON(`data/globe/${meta.id}.json`);
+  S.mode = "replay";  // only now: frames in between still draw the previous data
   d.objects.forEach((o) => {
     const s = S.sats[o.norad_id];
     o.name = o.name || (s && s.name) || String(o.norad_id);
@@ -372,7 +372,7 @@ async function startReplay(id) {
     `${LABELS[meta.label] || meta.label}, ${fmt(meta.dv_total_ms, meta.dv_total_ms < 1 ? 3 : 2)} m/s. `,
     `Closest: ${meta.closest_name || "neighbour"} at ${kmText(meta.closest_km)}`, tca ? `, ${iso(tca).slice(0, 16)}Z. ` : ". ",
     "Grey dashed line: orbit before the burn. ",
-    ev ? el("a", { href: `index.html#/event/${encodeURIComponent(meta.key)}` }, "Event details →") : null);
+    ev ? el("a", { href: `dashboard.html#/event/${encodeURIComponent(meta.key)}` }, "Event details →") : null);
   select(target, true);
   syncButtons();
 }
@@ -400,16 +400,25 @@ function syncButtons() {
 $("play").addEventListener("click", () => { S.playing = !S.playing; syncButtons(); });
 document.querySelectorAll("[data-speed]").forEach((b) => b.addEventListener("click", () => { S.speed = Number(b.dataset.speed); S.playing = true; syncButtons(); }));
 $("scrub").addEventListener("input", (ev) => { S.t = S.t0 + (S.t1 - S.t0) * (ev.target.value / 1000); });
-$("mode-live").addEventListener("click", () => startLive());
+$("mode-live").addEventListener("click", () => { EV.active = null; history.replaceState(null, "", location.pathname); startLive().then(renderEvents); });
 function jumpTo(t) {
   S.t = Math.min(Math.max(t, S.t0), S.t1);
   if (S.selected) { lastFollow = null; flyTo(S.selected); }
 }
 $("jump-burn").addEventListener("click", () => jumpTo(S.data.burn_t - 1800));
 $("jump-tca").addEventListener("click", () => { if (S.replay && S.replay.tca_utc) jumpTo(Date.parse(S.replay.tca_utc) / 1000 - 1800); });
-$("mode-replay").addEventListener("click", () => startReplay($("replay-pick").value));
-$("replay-pick").addEventListener("change", (ev) => startReplay(ev.target.value));
-$("pick").addEventListener("change", (ev) => { const o = S.objects.find((x) => String(x.norad_id) === ev.target.value); select(o || null, true); });
+const replayFromPicker = async (id) => {
+  await startReplay(id);
+  EV.active = S.replay ? S.replay.key : null;
+  renderEvents();
+};
+$("mode-replay").addEventListener("click", () => replayFromPicker($("replay-pick").value));
+$("replay-pick").addEventListener("change", (ev) => replayFromPicker(ev.target.value));
+$("pick").addEventListener("change", (ev) => {
+  const o = S.objects.find((x) => String(x.norad_id) === ev.target.value);
+  select(o || null, true);
+  filterToSat(o || null);
+});
 $("orbits").addEventListener("change", (ev) => { S.orbitMode = ev.target.value; applyVisibility(); });
 $("follow").addEventListener("change", (ev) => { S.follow = ev.target.checked; });
 document.querySelectorAll("[data-group]").forEach((c) => c.addEventListener("change", () => {
@@ -421,6 +430,121 @@ $("collapse").addEventListener("click", () => {
   const p = $("panel"); p.classList.toggle("collapsed");
   $("collapse").setAttribute("aria-expanded", String(!p.classList.contains("collapsed")));
 });
+
+// ---------- event list ----------
+// Beside the globe: every detected maneuver, newest first. Picking one plays its
+// close-approach replay when there is one, otherwise flies to the satellite now.
+const EV = { show: "notable", q: "", group: "_watch", sat: null, active: null, limit: 150, neighbors: {} };
+const hex = (c) => "#" + c.toString(16).padStart(6, "0");
+const dvText = (e) => `${fmt(e.dv_total_ms, e.dv_total_ms < 1 ? 3 : 2)} ± ${fmt(e.dv_sigma_ms, e.dv_sigma_ms < 1 ? 3 : 2)} m/s`;
+const replayOf = (key) => S.replays.find((r) => r.key === key);
+
+function nearestText(key) {
+  const rows = EV.neighbors[key] || [];
+  const docked = rows.find((n) => n.max_range_km !== null && n.max_range_km <= 1);
+  if (docked) return `attached to ${docked.neighbor_name || docked.neighbor_norad}`;
+  const free = rows.filter((n) => n.max_range_km === null || n.max_range_km > 1);
+  if (!free.length) return null;
+  const n = free.reduce((a, b) => (a.min_range_km <= b.min_range_km ? a : b));
+  return `${kmText(n.min_range_km)} from ${n.neighbor_name || n.neighbor_norad}`;
+}
+
+function eventRows() {
+  const q = EV.q.trim().toLowerCase();
+  return S.allEvents.filter((e) => {
+    const s = S.sats[e.norad_id];
+    if (EV.sat !== null) return e.norad_id === EV.sat;
+    if (EV.show === "notable" && e.routine) return false;
+    if (EV.show === "replay" && !replayOf(e.key)) return false;
+    if (EV.group === "_watch") { if (s && s.category === "starlink_sample") return false; }
+    else if (EV.group && (!s || s.category !== EV.group)) return false;
+    if (q && !`${s ? s.name : ""} ${e.norad_id}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderEvents() {
+  const rows = eventRows();
+  const s = EV.sat !== null ? S.sats[EV.sat] : null;
+  const count = $("ev-count");
+  count.replaceChildren(`${rows.length.toLocaleString()} maneuver${rows.length === 1 ? "" : "s"}`);
+  if (s) {
+    count.append(` for ${s.name} `, el("button", { type: "button", class: "linkish", id: "ev-clear" }, "show all"));
+    $("ev-clear").addEventListener("click", () => { EV.sat = null; renderEvents(); });
+  }
+  document.querySelectorAll("[data-show]").forEach((b) => b.setAttribute("aria-pressed", String(EV.sat === null && b.dataset.show === EV.show)));
+  const list = $("ev-list");
+  list.replaceChildren(...rows.slice(0, EV.limit).map(eventItem));
+  if (!rows.length) list.append(el("li", { class: "empty small muted" }, "Nothing matches."));
+  if (rows.length > EV.limit) {
+    const more = el("button", { type: "button", class: "more" }, `Show ${Math.min(150, rows.length - EV.limit)} more`);
+    more.addEventListener("click", () => { EV.limit += 150; renderEvents(); });
+    list.append(el("li", {}, more));
+  }
+}
+
+function eventItem(e) {
+  const s = S.sats[e.norad_id];
+  const rp = replayOf(e.key);
+  const near = nearestText(e.key);
+  const on = e.key === EV.active;
+  const btn = el("button", { type: "button", class: "ev", "aria-current": String(on) },
+    el("span", { class: "ev-top" },
+      el("span", { class: "dot", style: `background:${hex(colorOf(s || {}))}` }),
+      el("strong", {}, s ? s.name : String(e.norad_id)),
+      el("span", { class: "ev-date num" }, e.window_end_utc.slice(0, 10))),
+    el("span", { class: "ev-mid" },
+      el("span", { class: "chip" + (e.routine ? "" : " notable") }, LABELS[e.label] || e.label),
+      el("span", { class: "num" }, dvText(e)),
+      rp ? el("span", { class: "badge" }, "▶ Replay") : null),
+    near ? el("span", { class: "ev-near small ink2" }, `Nearest: ${near}`) : null);
+  btn.addEventListener("click", () => openEvent(e));
+  const li = el("li", {}, btn);
+  if (on) {
+    const live = S.mode === "live";
+    li.append(el("div", { class: "ev-detail small" },
+      el("p", {}, `Burn between ${e.window_start_utc.slice(0, 16).replace("T", " ")}Z and ${e.window_end_utc.slice(0, 16).replace("T", " ")}Z. `,
+        e.d_sma_km !== null ? `Mean altitude ${e.d_sma_km >= 0 ? "up" : "down"} ${fmt(Math.abs(e.d_sma_km), 2)} km. ` : "",
+        e.plane_change ? `Plane change ${fmt(e.plane_change_deg, 3)}°. ` : ""),
+      live ? el("p", { class: "muted" }, "No replay for this one, so the globe shows where the satellite is now.") : null,
+      el("a", { href: `dashboard.html#/event/${encodeURIComponent(e.key)}` }, "Event details and orbit charts →")));
+  }
+  return li;
+}
+
+async function openEvent(e, scroll = true) {
+  EV.active = e.key;
+  history.replaceState(null, "", `?event=${encodeURIComponent(e.key)}`);
+  const rp = replayOf(e.key);
+  if (rp) await startReplay(rp.id);
+  else {
+    if (S.mode !== "live") await startLive();
+    const o = S.objects.find((x) => x.norad_id === e.norad_id);
+    if (o) {
+      if (!S.groups.has(o.category)) {  // make sure its group is shown
+        S.groups.add(o.category);
+        const box = document.querySelector(`[data-group="${o.category}"]`);
+        if (box) box.checked = true;
+      }
+      select(o, true);
+    }
+  }
+  renderEvents();
+  // stacked layout: the list is under the globe, so bring the globe into view
+  if (scroll && innerWidth < 1000) $("stage").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function filterToSat(o) {
+  EV.sat = o ? o.norad_id : null;
+  EV.limit = 150;
+  renderEvents();
+}
+
+document.querySelectorAll("[data-show]").forEach((b) => b.addEventListener("click", () => {
+  EV.show = b.dataset.show; EV.sat = null; EV.limit = 150; renderEvents();
+}));
+$("ev-q").addEventListener("input", (ev) => { EV.q = ev.target.value; EV.sat = null; EV.limit = 150; renderEvents(); });
+$("ev-group").addEventListener("change", (ev) => { EV.group = ev.target.value; EV.sat = null; EV.limit = 150; renderEvents(); });
 
 // ---------- loop ----------
 let lastLayout = "";
@@ -441,6 +565,7 @@ function resize() {
 
 let last = performance.now(), infoTick = 0, lastFollow = null;
 function frame(now) {
+  requestAnimationFrame(frame);  // first, so one bad frame can't stop the animation
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
   if (S.data) {
@@ -504,11 +629,12 @@ function frame(now) {
     controls.update();
   }
   renderer.render(scene, camera);
-  requestAnimationFrame(frame);
 }
 
 // ---------- boot ----------
-if (innerWidth <= 760) {  // on phones the panel would cover the Earth; start it folded
+if (innerWidth <= 760 || (innerWidth >= 1000 && innerWidth < 1280)) {
+  // On phones the panel would cover the Earth; on mid-size screens the event list
+  // already takes the right side. Start it folded in both.
   $("panel").classList.add("collapsed");
   $("collapse").setAttribute("aria-expanded", "false");
 }
@@ -517,15 +643,27 @@ if (innerWidth <= 760) {  // on phones the panel would cover the Earth; start it
     const [index, replays] = await Promise.all([loadJSON("data/index.json"), loadJSON("data/globe/replays.json")]);
     for (const s of index.satellites) S.sats[s.norad_id] = s;
     for (const e of index.events) (S.events[e.norad_id] ||= []).push(e);
+    S.allEvents = index.events.slice().sort((a, b) => (a.window_end_utc < b.window_end_utc ? 1 : -1));
+    EV.neighbors = index.neighbors;
     S.replays = replays;
+    const notable = index.events.filter((e) => !e.routine).length;
+    $("ev-stats").textContent = `${index.events.length.toLocaleString()} found across ${index.satellites.length} satellites, ${notable} not routine upkeep, `
+      + `${index.campaigns.length} multi-burn campaigns. Checked against NASA: ${index.validation.detected} of ${index.validation.total} ISS reboosts caught.`;
+    $("generated").textContent = `Data generated ${index.generated_utc.slice(0, 16).replace("T", " ")}Z.`;
     const name = (id) => (S.sats[id] ? S.sats[id].name : String(id));
     $("replay-pick").replaceChildren(...replays.map((r) => el("option", { value: r.id },
       `${name(r.norad_id)} · ${r.window_end_utc.slice(0, 10)} · nearest ${kmText(r.closest_km)}`)));
     await startLive();
     const live = S.live.objects.slice().sort((a, b) => a.name.localeCompare(b.name));
     $("pick").replaceChildren(el("option", { value: "" }, "Choose…"), ...live.map((o) => el("option", { value: String(o.norad_id) }, o.name)));
-    const want = new URLSearchParams(location.search).get("replay");
-    if (want) await startReplay(want);
+    renderEvents();
+    const params = new URLSearchParams(location.search);
+    const wantEvent = params.get("event") && S.allEvents.find((e) => e.key === params.get("event"));
+    if (wantEvent) {
+      if (wantEvent.routine) EV.show = "all";
+      await openEvent(wantEvent, false);
+      document.querySelector('#ev-list [aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+    } else if (params.get("replay")) await startReplay(params.get("replay"));
     $("loading").hidden = true;
   } catch (err) {
     $("loading").textContent = `Could not load globe data (${err.message}). Run scripts/build_site.py.`;
